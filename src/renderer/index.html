@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>promptOS</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="result-section" class="result-section hidden">
+        <div id="result-text" class="result-text"></div>
+        <div class="result-actions">
+            <button id="refine-btn" class="btn-text-action">Refine</button>
+            <button id="insert-btn" class="btn-insert">Insert</button>
+        </div>
+    </div>
+
+    <div id="error-section" class="error-section hidden">
+        <span id="error-text"></span>
+    </div>
+
+    <div class="input-bar">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+        <input
+            type="text"
+            id="prompt-input"
+            placeholder="Ask AI..."
+            autocomplete="off"
+            spellcheck="false"
+        >
+        <button id="cancel-btn" class="btn-cancel" style="display: none;">Cancel</button>
+        <button id="generate-btn" class="btn-create">
+            <svg class="icon-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 2L11 13"/>
+                <path d="M22 2L15 22L11 13L2 9L22 2Z"/>
+            </svg>
+            <span class="btn-loading hidden">
+                <span class="spinner"></span>
+            </span>
+        </button>
+    </div>
+
+    <div id="error-section" class="error-section hidden">
+        <span id="error-text"></span>
+    </div>
+
+    <script src="bundle.js"></script>
+</body>
+</html>

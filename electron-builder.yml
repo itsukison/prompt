@@ -1,0 +1,29 @@
+appId: com.promptos.app
+productName: promptOS
+directories:
+  output: dist
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+    - zip
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: entitlements.plist
+  entitlementsInherit: entitlements.plist
+
+win:
+  target:
+    - nsis
+    - portable
+
+linux:
+  target:
+    - AppImage
+    - deb
+
+files:
+  - src/**/*
+  - "!src/renderer/app.js"
+  - package.json

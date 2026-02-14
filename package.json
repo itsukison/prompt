@@ -1,0 +1,25 @@
+{
+  "name": "prompt-os",
+  "productName": "promptOS",
+  "version": "0.1.0",
+  "description": "Global AI writing assistant - press Cmd+/ anywhere to generate text",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "npm run build:renderer && electron .",
+    "build:renderer": "node build.js",
+    "watch": "node build.js --watch",
+    "package": "npm run build:renderer && electron-builder --dir",
+    "build": "npm run build:renderer && electron-builder --config electron-builder.yml"
+  },
+  "author": "promptOS",
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "dotenv": "^17.0.0"
+  },
+  "devDependencies": {
+    "electron": "^30.5.1",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.25.5"
+  }
+}
