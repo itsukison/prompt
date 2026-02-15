@@ -1,7 +1,7 @@
 appId: com.promptos.app
 productName: promptOS
 directories:
-  output: dist
+  output: release
 
 mac:
   category: public.app-category.productivity
@@ -24,6 +24,7 @@ linux:
     - deb
 
 files:
-  - src/**/*
-  - "!src/renderer/app.js"
+  - src/main.js
+  - src/preload.js
+  - dist/renderer/**/*
   - package.json

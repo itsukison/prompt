@@ -146,13 +146,13 @@ function createOverlayWindow() {
     const { width, height } = primaryDisplay.workAreaSize;
 
     const windowWidth = 600;
-    const windowHeight = 220;
+    const windowHeight = 400;
 
     overlayWindow = new BrowserWindow({
         width: windowWidth,
         height: windowHeight,
         x: Math.round((width - windowWidth) / 2),
-        y: height - windowHeight - 50,
+        y: height - windowHeight + 45,
         frame: false,
         transparent: true,
         backgroundColor: '#00000000',
@@ -168,7 +168,7 @@ function createOverlayWindow() {
         }
     });
 
-    overlayWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+    overlayWindow.loadFile(path.join(__dirname, '..', 'dist', 'renderer', 'index.html'));
 
     // macOS specific settings
     if (process.platform === 'darwin') {
@@ -199,15 +199,16 @@ function showOverlay() {
     // Reposition to current screen
     const cursorPoint = screen.getCursorScreenPoint();
     const display = screen.getDisplayNearestPoint(cursorPoint);
-    const { width, height } = display.workAreaSize;
+    // Use bounds as requested by user manually in Step 185
+    const { width, height } = display.bounds;
     const { x: displayX, y: displayY } = display.bounds;
 
     const windowWidth = 600;
-    const windowHeight = 220;
+    const windowHeight = 400;
 
     overlayWindow.setPosition(
         Math.round(displayX + (width - windowWidth) / 2),
-        Math.round(displayY + height - windowHeight - 50)
+        Math.round(displayY + height - windowHeight + 45)
     );
 
     overlayWindow.show();

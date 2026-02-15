@@ -10,6 +10,7 @@ const insertBtn = document.getElementById('insert-btn');
 const errorSection = document.getElementById('error-section');
 const errorText = document.getElementById('error-text');
 const cancelBtn = document.getElementById('cancel-btn');
+const inputBar = document.querySelector('.input-bar');
 
 let currentResult = '';
 let isGenerating = false;

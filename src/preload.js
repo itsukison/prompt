@@ -10,6 +10,9 @@ contextBridge.exposeInMainWorld('promptOS', {
     // Dismiss the overlay
     dismiss: () => ipcRenderer.send('dismiss'),
 
+    // Set window height
+    setHeight: (height) => ipcRenderer.send('set-height', height),
+
     // Listen for window events
     onWindowShown: (callback) => {
         ipcRenderer.on('window-shown', callback);
