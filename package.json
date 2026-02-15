@@ -1,6 +1,6 @@
 {
   "name": "prompt-os",
-  "productName": "promptOS",
+  "productName": "PromptOS",
   "version": "0.1.0",
   "description": "Global AI writing assistant - press Cmd+/ anywhere to generate text",
   "main": "src/main.js",
@@ -15,7 +15,9 @@
   "license": "MIT",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "dotenv": "^17.0.0"
+    "@supabase/supabase-js": "^2.95.3",
+    "dotenv": "^17.0.0",
+    "electron-store": "^11.0.2"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.24",

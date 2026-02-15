@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>promptOS</title>
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Geist:wght@100..900&display=swap"
+        rel="stylesheet">
+    <style>
+        /* Main window specific styles */
+        .page {
+            display: none;
+            /* animation is handled by classes now */
+        }
+
+        .page.active {
+            display: flex;
+        }
+
+        /* Title bar drag region */
+        .title-bar {
+            -webkit-app-region: drag;
+        }
+
+        .title-bar * {
+            -webkit-app-region: no-drag;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-claude-bg text-zinc-100 min-h-screen font-sans selection:bg-zinc-700 selection:text-zinc-100 overflow-hidden">
+    <!-- Title bar (draggable area) -->
+    <div class="title-bar h-8 w-full fixed top-0 left-0 z-50"></div>
+
+    <!-- ================================================================= -->
+    <!-- Auth Page -->
+    <!-- ================================================================= -->
+    <div id="page-auth"
+        class="page active flex-col items-center justify-center min-h-screen px-4 animate-fade-in w-full">
+        <div class="w-full max-w-[360px]">
+            <div class="flex flex-col items-center mb-10">
+                <div class="w-16 h-16 flex items-center justify-center mb-6">
+                    <img src="/logo.png" alt="Logo" class="w-full h-full object-contain">
+                </div>
+                <!-- Title replaced dynamically based on state -->
+                <h1 id="auth-title" class="text-3xl font-serif font-medium text-zinc-100 tracking-tight mb-3">
+                    Welcome back
+                </h1>
+                <p id="auth-subtitle" class="text-zinc-500 text-sm">
+                    Enter your credentials to access your workspace.
+                </p>
+            </div>
+
+            <form id="auth-form" class="space-y-4 mb-8">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-zinc-400 mb-1">Email</label>
+                        <input type="email" id="auth-email" placeholder="name@company.com" required
+                            class="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder:text-zinc-600 focus:border-zinc-600 transition-all h-11">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-zinc-400 mb-1">Password</label>
+                        <input type="password" id="auth-password" placeholder="••••••••" required minlength="6"
+                            class="w-full px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg text-white placeholder:text-zinc-600 focus:border-zinc-600 transition-all h-11">
+                    </div>
+                </div>
+
+                <div id="auth-error"
+                    class="hidden text-xs text-red-300 bg-red-900/20 px-3 py-2 rounded-md border border-red-900/30">
+                </div>
+
+                <button type="submit" id="auth-submit"
+                    class="w-full h-12 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    Continue
+                </button>
+            </form>
+
+            <div class="text-center">
+                <button id="auth-toggle" class="text-sm text-zinc-500 hover:text-zinc-300 transition-colors">
+                    No account? Sign up
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- Onboarding Step 1: Name -->
+    <!-- ================================================================= -->
+    <div id="page-onboarding-1"
+        class="page flex-col items-center justify-center min-h-screen px-4 animate-fade-in w-full">
+        <div class="w-full max-w-[480px]">
+            <div class="mb-10 text-center">
+                <h2 class="text-4xl font-serif font-medium text-zinc-100 tracking-tight mb-4">What should we call you?
+                </h2>
+                <p class="text-zinc-500 text-lg">Your name will be visible in your team workspace.</p>
+            </div>
+
+            <form id="onboarding-1-form" class="relative">
+                <input type="text" id="display-name-input" placeholder="Type your name..." required
+                    class="w-full text-3xl py-6 px-0 bg-transparent border-0 border-b border-zinc-800 rounded-none focus:border-zinc-500 focus:ring-0 placeholder:text-zinc-800 font-serif text-center transition-colors text-white">
+
+                <div class="flex justify-center mt-12">
+                    <button type="submit" id="onboarding-name-submit" disabled
+                        class="px-10 py-3 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 font-medium rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2">
+                        Continue <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- Onboarding Step 2: Writing Style -->
+    <!-- ================================================================= -->
+    <div id="page-onboarding-2"
+        class="page flex-col items-center justify-center min-h-screen px-4 py-12 animate-slide-up w-full overflow-y-auto">
+        <div class="w-full max-w-4xl pt-8">
+            <div class="text-center mb-16 space-y-3">
+                <h2 class="text-4xl font-serif font-medium text-zinc-100 tracking-tight">Choose your style</h2>
+                <p class="text-zinc-500 text-lg">How should the AI respond to you?</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12" id="style-cards-container">
+                <!-- Style cards will be injected by JS or hardcoded here -->
+
+                <!-- Template for style card -->
+                <button type="button"
+                    class="style-card text-left p-6 rounded-2xl transition-all duration-300 group border relative overflow-hidden bg-[#1e1e20] border-zinc-800/50 hover:bg-zinc-800/50 hover:border-zinc-700"
+                    data-style="professional">
+                    <div
+                        class="mb-4 w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-300 bg-zinc-900 text-zinc-500 group-hover:text-zinc-300 icon-container">
+                        <i data-lucide="briefcase" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2 font-serif text-zinc-300 title">Professional</h3>
+                    <p class="text-sm text-zinc-500 mb-6 leading-relaxed h-10">Clear, polished, and business-appropriate
+                        tone.</p>
+                    <div
+                        class="text-sm italic font-serif leading-relaxed pl-3 border-l-2 text-zinc-600 border-zinc-800 example">
+                        "I wanted to follow up and confirm next steps."
+                    </div>
+                </button>
+
+                <button type="button"
+                    class="style-card text-left p-6 rounded-2xl transition-all duration-300 group border relative overflow-hidden bg-[#1e1e20] border-zinc-800/50 hover:bg-zinc-800/50 hover:border-zinc-700"
+                    data-style="casual">
+                    <div
+                        class="mb-4 w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-300 bg-zinc-900 text-zinc-500 group-hover:text-zinc-300 icon-container">
+                        <i data-lucide="message-circle" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2 font-serif text-zinc-300 title">Casual</h3>
+                    <p class="text-sm text-zinc-500 mb-6 leading-relaxed h-10">Friendly, conversational, and
+                        approachable.</p>
+                    <div
+                        class="text-sm italic font-serif leading-relaxed pl-3 border-l-2 text-zinc-600 border-zinc-800 example">
+                        "Hey! Just checking in about earlier—let me know!"
+                    </div>
+                </button>
+
+                <button type="button"
+                    class="style-card text-left p-6 rounded-2xl transition-all duration-300 group border relative overflow-hidden bg-[#1e1e20] border-zinc-800/50 hover:bg-zinc-800/50 hover:border-zinc-700"
+                    data-style="concise">
+                    <div
+                        class="mb-4 w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-300 bg-zinc-900 text-zinc-500 group-hover:text-zinc-300 icon-container">
+                        <i data-lucide="zap" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2 font-serif text-zinc-300 title">Concise</h3>
+                    <p class="text-sm text-zinc-500 mb-6 leading-relaxed h-10">Direct, minimal, no filler words.</p>
+                    <div
+                        class="text-sm italic font-serif leading-relaxed pl-3 border-l-2 text-zinc-600 border-zinc-800 example">
+                        "Following up. Please confirm."
+                    </div>
+                </button>
+
+                <button type="button"
+                    class="style-card text-left p-6 rounded-2xl transition-all duration-300 group border relative overflow-hidden bg-[#1e1e20] border-zinc-800/50 hover:bg-zinc-800/50 hover:border-zinc-700"
+                    data-style="creative">
+                    <div
+                        class="mb-4 w-10 h-10 rounded-xl flex items-center justify-center transition-colors duration-300 bg-zinc-900 text-zinc-500 group-hover:text-zinc-300 icon-container">
+                        <i data-lucide="sparkles" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="text-lg font-medium mb-2 font-serif text-zinc-300 title">Creative</h3>
+                    <p class="text-sm text-zinc-500 mb-6 leading-relaxed h-10">Expressive, varied sentence structure.
+                    </p>
+                    <div
+                        class="text-sm italic font-serif leading-relaxed pl-3 border-l-2 text-zinc-600 border-zinc-800 example">
+                        "Circling back—I've been mulling it over!"
+                    </div>
+                </button>
+
+                <!-- Custom Option -->
+                <div class="md:col-span-2">
+                    <button type="button"
+                        class="style-card w-full text-left p-6 rounded-2xl transition-all duration-300 border relative overflow-hidden bg-[#1e1e20] border-zinc-800/50 hover:bg-zinc-800/50 hover:border-zinc-700"
+                        data-style="custom" id="style-card-custom">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div
+                                class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors bg-zinc-900 text-zinc-500 group-hover:text-zinc-300 icon-container">
+                                <i data-lucide="sparkles" class="w-4 h-4"></i>
+                            </div>
+                            <h3 class="text-lg font-medium font-serif text-zinc-300 title">
+                                Custom
+                            </h3>
+                        </div>
+                        <p class="text-sm text-zinc-500 mb-4 ml-11">Define your own system prompt instructions.</p>
+                    </button>
+
+                    <div id="custom-style-container" class="hidden mt-4 animate-fade-in ml-11">
+                        <textarea id="custom-style-input"
+                            class="w-full bg-[#121214] border border-zinc-700 rounded-xl p-4 text-sm text-zinc-200 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500/20 min-h-[100px] transition-all font-mono shadow-inner"
+                            placeholder="e.g. You are a helpful assistant who speaks in riddles..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center max-w-4xl mx-auto w-full pb-12">
+                <button type="button" id="onboarding-back-btn"
+                    class="px-0 hover:bg-transparent text-zinc-500 hover:text-zinc-300 flex items-center gap-2 transition-colors">
+                    <i data-lucide="chevron-left" class="w-4 h-4"></i> Back
+                </button>
+                <button type="button" id="complete-onboarding" disabled
+                    class="px-8 py-3 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 font-medium rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2">
+                    Get Started <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- Settings Page -->
+    <!-- ================================================================= -->
+    <div id="page-settings" class="page flex h-screen bg-claude-bg text-zinc-200 overflow-hidden w-full">
+        <!-- Sidebar -->
+        <aside id="settings-sidebar"
+            class="w-[260px] flex flex-col bg-claude-sidebar border-r border-zinc-800/50 pt-10 pb-4 h-full transition-[width] duration-300 ease-in-out group"
+            data-collapsed="false">
+            <div
+                class="px-5 mb-8 flex items-center justify-between group-data-[collapsed=true]:px-2 group-data-[collapsed=true]:flex-col group-data-[collapsed=true]:gap-4 transition-all duration-300">
+                <div
+                    class="flex items-center gap-3 overflow-hidden group-data-[collapsed=true]:justify-center group-data-[collapsed=true]:w-full">
+                    <img src="/logo.png" alt="Logo" class="w-7 h-7 object-contain shrink-0">
+                    <span
+                        class="font-serif text-xl font-medium tracking-tight text-zinc-100 sidebar-text transition-opacity duration-200 group-data-[collapsed=true]:opacity-0 group-data-[collapsed=true]:w-0 group-data-[collapsed=true]:hidden">PromptOS</span>
+                </div>
+                <button id="sidebar-toggle"
+                    class="text-zinc-500 hover:text-zinc-300 transition-colors sidebar-toggle-btn group-data-[collapsed=true]:rotate-180">
+                    <i data-lucide="panel-left-close" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <nav class="flex-1 px-3 space-y-1" id="settings-sidebar-nav">
+                <!-- Nav items injected by JS -->
+                <button
+                    class="settings-nav-item w-full flex items-center gap-3 text-left px-3 py-2 rounded-md text-sm transition-all duration-200 group bg-zinc-800/80 text-zinc-100 shadow-sm overflow-hidden group-data-[collapsed=true]:justify-center group-data-[collapsed=true]:px-2"
+                    data-tab="general">
+                    <i data-lucide="settings" class="w-4 h-4 shrink-0"></i>
+                    <span
+                        class="sidebar-text transition-opacity duration-200 group-data-[collapsed=true]:opacity-0 group-data-[collapsed=true]:hidden whitespace-nowrap">General</span>
+                </button>
+                <button
+                    class="settings-nav-item w-full flex items-center gap-3 text-left px-3 py-2 rounded-md text-sm transition-all duration-200 group text-zinc-500 hover:bg-zinc-800/40 hover:text-zinc-300 overflow-hidden group-data-[collapsed=true]:justify-center group-data-[collapsed=true]:px-2"
+                    data-tab="account">
+                    <i data-lucide="user" class="w-4 h-4 shrink-0"></i>
+                    <span
+                        class="sidebar-text transition-opacity duration-200 group-data-[collapsed=true]:opacity-0 group-data-[collapsed=true]:hidden whitespace-nowrap">Account</span>
+                </button>
+                <button
+                    class="settings-nav-item w-full flex items-center gap-3 text-left px-3 py-2 rounded-md text-sm transition-all duration-200 group text-zinc-500 hover:bg-zinc-800/40 hover:text-zinc-300 overflow-hidden group-data-[collapsed=true]:justify-center group-data-[collapsed=true]:px-2"
+                    data-tab="billing">
+                    <i data-lucide="credit-card" class="w-4 h-4 shrink-0"></i>
+                    <span
+                        class="sidebar-text transition-opacity duration-200 group-data-[collapsed=true]:opacity-0 group-data-[collapsed=true]:hidden whitespace-nowrap">Billing</span>
+                </button>
+                <button
+                    class="settings-nav-item w-full flex items-center gap-3 text-left px-3 py-2 rounded-md text-sm transition-all duration-200 group text-zinc-500 hover:bg-zinc-800/40 hover:text-zinc-300 overflow-hidden group-data-[collapsed=true]:justify-center group-data-[collapsed=true]:px-2"
+                    data-tab="usage">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4 shrink-0"></i>
+                    <span
+                        class="sidebar-text transition-opacity duration-200 group-data-[collapsed=true]:opacity-0 group-data-[collapsed=true]:w-0 group-data-[collapsed=true]:hidden whitespace-nowrap">Usage</span>
+                </button>
+            </nav>
+
+            <div class="px-3 mt-auto">
+                <div
+                    class="p-3 rounded-xl bg-zinc-900/50 border border-zinc-800/50 mb-2 transition-all duration-300 group-data-[collapsed=true]:px-2 group-data-[collapsed=true]:justify-center">
+                    <div
+                        class="flex items-center gap-3 mb-3 group-data-[collapsed=true]:mb-0 group-data-[collapsed=true]:justify-center">
+                        <div class="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-serif text-zinc-300 border border-zinc-700/50 shrink-0"
+                            id="sidebar-avatar">
+                            U
+                        </div>
+                        <div
+                            class="overflow-hidden sidebar-text transition-opacity duration-200 group-data-[collapsed=true]:opacity-0 group-data-[collapsed=true]:w-0 group-data-[collapsed=true]:hidden">
+                            <p class="text-sm font-medium truncate text-zinc-200" id="sidebar-name">User Name</p>
+                            <p class="text-[10px] text-zinc-500 truncate uppercase tracking-wider" id="sidebar-tier">
+                                Free Plan</p>
+                        </div>
+                    </div>
+                    <button id="logout-btn"
+                        class="w-full h-8 flex items-center gap-2 px-2 text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 rounded-md transition-colors justify-start group-data-[collapsed=true]:hidden sidebar-text">
+                        <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                        Sign out
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto bg-claude-bg h-full">
+            <div class="max-w-2xl mx-auto px-8 py-16 animate-fade-in">
+
+                <div class="mb-12">
+                    <h1 class="text-3xl font-serif font-medium mb-2 text-zinc-100 capitalize" id="settings-page-title">
+                        General</h1>
+                    <p class="text-zinc-500 text-sm">Manage your workspace preferences and settings.</p>
+                </div>
+
+                <!-- Tab: General -->
+                <div id="tab-general" class="settings-tab-content space-y-12 block">
+                    <!-- Profile Section -->
+                    <section class="space-y-4">
+                        <h3 class="text-sm font-medium text-zinc-400 uppercase tracking-wider">Profile</h3>
+                        <div class="flex justify-between items-center py-4 border-b border-zinc-800/50">
+                            <div class="space-y-1">
+                                <h3 class="text-base font-medium text-zinc-200">Display Name</h3>
+                                <p class="text-sm text-zinc-500">Visible to other members of your workspace.</p>
+                            </div>
+                            <div id="display-name-view" class="flex gap-2 items-center">
+                                <button id="edit-name-btn"
+                                    class="px-3 py-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-md transition-colors">
+                                    Edit
+                                </button>
+                            </div>
+                            <div id="display-name-edit" class="hidden flex gap-2 items-center">
+                                <input id="settings-display-name"
+                                    class="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-zinc-500 text-zinc-200 w-48">
+                                <button id="save-name-btn"
+                                    class="px-3 py-1.5 text-sm bg-zinc-100 hover:bg-zinc-200 text-zinc-950 rounded-md transition-colors">Save</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Writing Style Section (simplified version of onboarding) -->
+                    <section class="space-y-6">
+                        <h3 class="text-sm font-medium text-zinc-400 uppercase tracking-wider">Intelligence</h3>
+
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 class="text-base font-medium text-zinc-200 mb-1">Response Style</h3>
+                                    <p class="text-sm text-zinc-500 max-w-sm">Choose how the AI communicates with you.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-3" id="settings-style-grid">
+                                <!-- Reusing style card structure but simpler -->
+                                <!-- Professional -->
+                                <div class="settings-style-card group relative p-4 rounded-xl cursor-pointer transition-all duration-200 border bg-zinc-900/20 border-zinc-800/50 hover:bg-zinc-800/40 hover:border-zinc-700"
+                                    data-style="professional">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <span class="text-sm font-medium text-zinc-300 title">Professional</span>
+                                        <div class="selection-indicator w-2 h-2 rounded-full hidden"></div>
+                                    </div>
+                                    <p class="text-sm text-zinc-500">Clear, polished, and business-appropriate tone.</p>
+                                </div>
+
+                                <!-- Casual -->
+                                <div class="settings-style-card group relative p-4 rounded-xl cursor-pointer transition-all duration-200 border bg-zinc-900/20 border-zinc-800/50 hover:bg-zinc-800/40 hover:border-zinc-700"
+                                    data-style="casual">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <span class="text-sm font-medium text-zinc-300 title">Casual</span>
+                                        <div class="selection-indicator w-2 h-2 rounded-full hidden"></div>
+                                    </div>
+                                    <p class="text-sm text-zinc-500">Friendly, conversational, and approachable.</p>
+                                </div>
+
+                                <!-- Concise -->
+                                <div class="settings-style-card group relative p-4 rounded-xl cursor-pointer transition-all duration-200 border bg-zinc-900/20 border-zinc-800/50 hover:bg-zinc-800/40 hover:border-zinc-700"
+                                    data-style="concise">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <span class="text-sm font-medium text-zinc-300 title">Concise</span>
+                                        <div class="selection-indicator w-2 h-2 rounded-full hidden"></div>
+                                    </div>
+                                    <p class="text-sm text-zinc-500">Direct, minimal, no filler words.</p>
+                                </div>
+
+                                <!-- Creative -->
+                                <div class="settings-style-card group relative p-4 rounded-xl cursor-pointer transition-all duration-200 border bg-zinc-900/20 border-zinc-800/50 hover:bg-zinc-800/40 hover:border-zinc-700"
+                                    data-style="creative">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <span class="text-sm font-medium text-zinc-300 title">Creative</span>
+                                        <div class="selection-indicator w-2 h-2 rounded-full hidden"></div>
+                                    </div>
+                                    <p class="text-sm text-zinc-500">Expressive, varied sentence structure.</p>
+                                </div>
+
+                                <!-- Custom -->
+                                <div class="settings-style-card group relative p-4 rounded-xl cursor-pointer transition-all duration-200 border bg-zinc-900/20 border-zinc-800/50 hover:bg-zinc-800/40 hover:border-zinc-700"
+                                    data-style="custom">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <span class="text-sm font-medium text-zinc-300 title">Custom Instructions</span>
+                                        <div class="selection-indicator w-2 h-2 rounded-full hidden"></div>
+                                    </div>
+                                    <div id="settings-custom-style-container" class="hidden mt-3 animate-fade-in"
+                                        onclick="event.stopPropagation()">
+                                        <textarea id="settings-custom-style-input"
+                                            class="w-full bg-zinc-950/50 border border-zinc-700/50 rounded-lg p-3 text-sm text-zinc-200 focus:outline-none focus:border-zinc-500 placeholder:text-zinc-600 transition-colors font-mono"
+                                            placeholder="e.g. Always answer in haikus..." rows="3"></textarea>
+                                        <button id="save-style-btn"
+                                            class="mt-2 px-3 py-1.5 text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-md transition-colors w-full">Save
+                                            Custom Style</button>
+                                    </div>
+                                    <p id="settings-custom-placeholder" class="text-sm text-zinc-500">Define your own
+                                        system prompt.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Tab: Usage & Billing combined for now -->
+                <div id="tab-usage" class="settings-tab-content space-y-8 animate-fade-in hidden">
+                    <section class="bg-zinc-900/20 border border-zinc-800 rounded-xl p-6">
+                        <h3 class="text-sm font-medium mb-6 text-zinc-400 uppercase tracking-wider">Current Usage</h3>
+
+                        <div class="space-y-8">
+                            <!-- Monthly Tokens -->
+                            <div>
+                                <div class="flex justify-between text-sm mb-2 text-zinc-400">
+                                    <span>Monthly Tokens</span>
+                                    <span class="text-zinc-500">Resets in 14 days</span>
+                                </div>
+                                <div class="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
+                                    <div id="usage-progress-bar"
+                                        class="h-full bg-zinc-100 rounded-full transition-all duration-500"
+                                        style="width: 0%"></div>
+                                </div>
+                                <div class="flex justify-between mt-2 text-xs text-zinc-500">
+                                    <span id="usage-val">0 / 0</span>
+                                </div>
+                            </div>
+
+                            <!-- Fast Requests (Mock) -->
+                            <div>
+                                <div class="flex justify-between text-sm mb-2 text-zinc-400">
+                                    <span>Fast Requests</span>
+                                    <span class="text-zinc-500">Daily limit</span>
+                                </div>
+                                <div class="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
+                                    <div class="h-full bg-zinc-100 rounded-full transition-all duration-500"
+                                        style="width: 42%"></div>
+                                </div>
+                                <div class="flex justify-between mt-2 text-xs text-zinc-500">
+                                    <span>850 / 2000</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Tab: Account -->
+                <div id="tab-account" class="settings-tab-content hidden space-y-8">
+                    <section class="space-y-4">
+                        <h3 class="text-sm font-medium text-zinc-400 uppercase tracking-wider">Account Information</h3>
+
+                        <div class="bg-zinc-900/20 border border-zinc-800 rounded-xl p-6 space-y-4">
+                            <div class="flex justify-between items-center py-2 border-b border-zinc-800/50">
+                                <span class="text-sm text-zinc-400">Email</span>
+                                <span class="text-sm text-zinc-200" id="account-email">Loading...</span>
+                            </div>
+                            <div class="flex justify-between items-center py-2">
+                                <span class="text-sm text-zinc-400">Account Status</span>
+                                <span
+                                    class="text-xs px-2 py-1 bg-green-500/10 text-green-400 rounded-full border border-green-500/20">Active</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="space-y-4">
+                        <h3 class="text-sm font-medium text-zinc-400 uppercase tracking-wider">Security</h3>
+                        <div class="bg-zinc-900/20 border border-zinc-800 rounded-xl p-6">
+                            <p class="text-sm text-zinc-500">Password management is handled through your authentication
+                                provider.</p>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Tab: Billing -->
+                <div id="tab-billing" class="settings-tab-content hidden space-y-8">
+                    <section class="space-y-4">
+                        <h3 class="text-sm font-medium text-zinc-400 uppercase tracking-wider">Current Plan</h3>
+
+                        <div class="bg-zinc-900/20 border border-zinc-800 rounded-xl p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <div>
+                                    <h4 class="text-lg font-medium text-zinc-100" id="billing-tier">Free Plan</h4>
+                                    <p class="text-sm text-zinc-500">100,000 tokens per month</p>
+                                </div>
+                                <span
+                                    class="text-xs px-2 py-1 bg-zinc-800 text-zinc-300 rounded-full border border-zinc-700">Current</span>
+                            </div>
+                            <button
+                                class="w-full py-2.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-950 text-sm font-medium rounded-lg transition-colors">
+                                Upgrade to Pro
+                            </button>
+                        </div>
+                    </section>
+
+                    <section class="space-y-4">
+                        <h3 class="text-sm font-medium text-zinc-400 uppercase tracking-wider">Pro Plan Benefits</h3>
+                        <div class="bg-zinc-900/20 border border-zinc-800 rounded-xl p-6 space-y-3">
+                            <div class="flex items-center gap-3 text-sm text-zinc-400">
+                                <i data-lucide="check" class="w-4 h-4 text-green-400"></i>
+                                <span>1,000,000 tokens per month</span>
+                            </div>
+                            <div class="flex items-center gap-3 text-sm text-zinc-400">
+                                <i data-lucide="check" class="w-4 h-4 text-green-400"></i>
+                                <span>Priority support</span>
+                            </div>
+                            <div class="flex items-center gap-3 text-sm text-zinc-400">
+                                <i data-lucide="check" class="w-4 h-4 text-green-400"></i>
+                                <span>Advanced writing styles</span>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Lucide Icons (CDN) -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <!-- Load modules -->
+    <script type="module" src="./main-window.js"></script>
+</body>
+
+</html>

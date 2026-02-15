@@ -111,6 +111,11 @@ function dismiss() {
 generateBtn.addEventListener('click', generate);
 
 promptInput.addEventListener('keydown', (e) => {
+    // Check if user is composing text (IME) - important for Japanese/Chinese input
+    if (e.isComposing) {
+        return;
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         generate();

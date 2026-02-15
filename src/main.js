@@ -2,6 +2,7 @@ const { app, BrowserWindow, globalShortcut, ipcMain, clipboard, screen } = requi
 const path = require('path');
 const { exec, execSync } = require('child_process');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { createSupabaseClient, getSupabaseClient } = require('./supabase');
 require('dotenv').config();
 
 // =============================================================================
@@ -9,12 +10,24 @@ require('dotenv').config();
 // =============================================================================
 const FOCUS_RESTORE_DELAY = 200; // ms to wait after restoring focus before pasting
 
+// Writing style guides for presets
+const WRITING_STYLE_GUIDES = {
+    professional: "Write in a clear, polished, and business-appropriate tone. Use complete sentences, avoid slang, and maintain a respectful, confident voice.",
+    casual: "Write in a friendly, conversational tone. Use contractions, simple language, and feel free to be warm and approachable.",
+    concise: "Write in a direct, minimal style. Get to the point quickly, avoid filler words, and keep sentences short.",
+    creative: "Write with personality and flair. Vary sentence structure, use expressive language, and don't be afraid to show character.",
+};
+
 // =============================================================================
 // State
 // =============================================================================
 let overlayWindow = null;
+let mainWindow = null;
 let genAI = null;
+let supabase = null;
 let previousApp = null; // Store the app that was focused before we showed the overlay
+let currentUserProfile = null; // Cached user profile with writing style
+let isAuthenticated = false;
 
 // Single instance lock
 const gotTheLock = app.requestSingleInstanceLock();
@@ -42,7 +55,7 @@ function getFrontmostApp() {
     } catch (error) {
         console.error('[Focus] Failed to get frontmost app:', error.message);
         if (error.message.includes('not allowed') || error.message.includes('accessibility')) {
-            console.error('[Focus] ⚠️  Accessibility permissions may be required.');
+            console.error('[Focus] Accessibility permissions may be required.');
             console.error('[Focus] Go to System Settings > Privacy & Security > Accessibility and enable this app.');
         }
         return null;
@@ -61,19 +74,58 @@ function activateApp(appName) {
             return;
         }
 
-        exec(`open -a "${appName}"`, (error) => {
-            if (error) {
-                console.error(`[Focus] Failed to activate "${appName}":`, error.message);
-                if (error.message.includes('not allowed') || error.message.includes('accessibility')) {
-                    console.error('[Focus] ⚠️  Accessibility permissions may be required.');
-                    console.error('[Focus] Go to System Settings > Privacy & Security > Accessibility and enable this app.');
+        // Apps that need 'open -a' due to sandboxing or special behavior
+        const OPEN_A_APPS = [
+            'Google Chrome',
+            'Chrome',
+            'Brave Browser',
+            'Microsoft Edge',
+            'Arc'
+        ];
+
+        const needsOpenA = OPEN_A_APPS.some(name =>
+            appName.toLowerCase().includes(name.toLowerCase())
+        );
+
+        if (needsOpenA) {
+            // Use 'open -a' for sandboxed browsers
+            console.log(`[Focus] Using 'open -a' for "${appName}" (sandboxed app)`);
+            exec(`open -a "${appName}"`, (error) => {
+                if (error) {
+                    console.error(`[Focus] Failed to activate "${appName}":`, error.message);
+                    resolve(false);
+                } else {
+                    console.log(`[Focus] Activated "${appName}"`);
+                    resolve(true);
                 }
-                resolve(false);
-            } else {
-                console.log(`[Focus] Activated "${appName}"`);
-                resolve(true);
-            }
-        });
+            });
+        } else {
+            // Use AppleScript for normal apps (preserves window state)
+            console.log(`[Focus] Using AppleScript for "${appName}" (preserves window state)`);
+            const script = `tell application "${appName}" to activate`;
+            exec(`osascript -e '${script}'`, (error) => {
+                if (error) {
+                    console.warn(`[Focus] AppleScript failed for "${appName}", falling back to 'open -a'`);
+                    // Fallback to 'open -a' if AppleScript fails
+                    exec(`open -a "${appName}"`, (fallbackError) => {
+                        if (fallbackError) {
+                            console.error(`[Focus] Fallback also failed for "${appName}":`, fallbackError.message);
+                            if (fallbackError.message.includes('not allowed') || fallbackError.message.includes('accessibility')) {
+                                console.error('[Focus] Accessibility permissions may be required.');
+                                console.error('[Focus] Go to System Settings > Privacy & Security > Accessibility and enable this app.');
+                            }
+                            resolve(false);
+                        } else {
+                            console.log(`[Focus] Activated "${appName}" via fallback`);
+                            resolve(true);
+                        }
+                    });
+                } else {
+                    console.log(`[Focus] Activated "${appName}"`);
+                    resolve(true);
+                }
+            });
+        }
     });
 }
 
@@ -88,7 +140,7 @@ function simulatePaste() {
                 if (error) {
                     console.error('[Paste] Failed to simulate paste:', error.message);
                     if (error.message.includes('not allowed') || error.message.includes('accessibility')) {
-                        console.error('[Paste] ⚠️  Accessibility permissions required for keystroke simulation.');
+                        console.error('[Paste] Accessibility permissions required for keystroke simulation.');
                         console.error('[Paste] Go to System Settings > Privacy & Security > Accessibility and enable this app.');
                     }
                     resolve(false);
@@ -121,26 +173,126 @@ function initGemini() {
     return new GoogleGenerativeAI(apiKey);
 }
 
+/**
+ * Get the writing style guide for the current user
+ */
+function getWritingStyleGuide() {
+    if (!currentUserProfile) return '';
+
+    const { writing_style, writing_style_guide } = currentUserProfile;
+
+    // If custom style with a guide, use that
+    if (writing_style === 'custom' && writing_style_guide) {
+        return writing_style_guide;
+    }
+
+    // Otherwise use preset guide
+    return WRITING_STYLE_GUIDES[writing_style] || WRITING_STYLE_GUIDES.professional;
+}
+
 async function generateText(prompt) {
     if (!genAI) {
         throw new Error('Gemini API not initialized. Check your GEMINI_API_KEY.');
     }
 
+    // Build system instruction with writing style
+    const styleGuide = getWritingStyleGuide();
+    const systemInstruction = styleGuide
+        ? `Writing style: ${styleGuide}\n\nYou are a helpful writing assistant. Generate concise, well-written text based on the user's request. Output only the requested text, no explanations or meta-commentary. Match the specified writing style.`
+        : 'You are a helpful writing assistant. Generate concise, well-written text based on the user\'s request. Output only the requested text, no explanations or meta-commentary. Match the tone and style appropriate for the request.';
+
     const model = genAI.getGenerativeModel({
         model: 'gemini-2.0-flash',
-        systemInstruction: 'You are a helpful writing assistant. Generate concise, well-written text based on the user\'s request. Output only the requested text, no explanations or meta-commentary. Match the tone and style appropriate for the request.'
+        systemInstruction
     });
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    return response.text();
+    const text = response.text();
+
+    // Track token usage if authenticated
+    if (isAuthenticated && currentUserProfile && supabase) {
+        try {
+            const usageMetadata = response.usageMetadata;
+            if (usageMetadata) {
+                const promptTokens = usageMetadata.promptTokenCount || 0;
+                const completionTokens = usageMetadata.candidatesTokenCount || 0;
+                const totalTokens = promptTokens + completionTokens;
+
+                // Insert usage log
+                await supabase.from('usage_logs').insert({
+                    user_id: currentUserProfile.id,
+                    prompt_text: prompt.substring(0, 500), // Truncate for storage
+                    prompt_tokens: promptTokens,
+                    completion_tokens: completionTokens,
+                    model: 'gemini-2.0-flash',
+                });
+
+                // Update user token counts
+                await supabase.from('user_profiles').update({
+                    tokens_used: currentUserProfile.tokens_used + totalTokens,
+                    tokens_remaining: Math.max(0, currentUserProfile.tokens_remaining - totalTokens),
+                    updated_at: new Date().toISOString(),
+                }).eq('id', currentUserProfile.id);
+
+                // Update local cache
+                currentUserProfile.tokens_used += totalTokens;
+                currentUserProfile.tokens_remaining = Math.max(0, currentUserProfile.tokens_remaining - totalTokens);
+            }
+        } catch (err) {
+            console.error('[Token Tracking] Failed to track usage:', err.message);
+        }
+    }
+
+    return text;
 }
 
 // =============================================================================
 // Window Management
 // =============================================================================
 
+function createMainWindow() {
+    if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+        return mainWindow;
+    }
+
+    mainWindow = new BrowserWindow({
+        width: 480,
+        height: 640,
+        minWidth: 400,
+        minHeight: 500,
+        frame: true,
+        transparent: false,
+        resizable: true,
+        show: true,
+        titleBarStyle: 'hiddenInset',
+        backgroundColor: '#1a1a1a',
+        webPreferences: {
+            preload: path.join(__dirname, 'preload.js'),
+            contextIsolation: true,
+            nodeIntegration: false,
+        }
+    });
+
+    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'renderer', 'main-window.html'));
+
+    mainWindow.on('closed', () => {
+        mainWindow = null;
+    });
+
+    // Show dock when main window is open
+    if (process.platform === 'darwin') {
+        app.dock?.show?.();
+    }
+
+    return mainWindow;
+}
+
 function createOverlayWindow() {
+    if (overlayWindow) return overlayWindow;
+
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width, height } = primaryDisplay.workAreaSize;
 
@@ -268,17 +420,103 @@ async function insertText(text) {
 // =============================================================================
 
 function registerShortcuts() {
-    const shortcut = process.platform === 'darwin' ? 'Command+/' : 'Control+/';
-
-    const registered = globalShortcut.register(shortcut, () => {
+    // Overlay toggle: Cmd+/ (macOS) or Ctrl+/ (Windows/Linux)
+    const overlayShortcut = process.platform === 'darwin' ? 'Command+/' : 'Control+/';
+    const overlayRegistered = globalShortcut.register(overlayShortcut, () => {
         toggleOverlay();
     });
 
-    if (!registered) {
-        console.error('Failed to register global shortcut:', shortcut);
+    if (!overlayRegistered) {
+        console.error('Failed to register overlay shortcut:', overlayShortcut);
     } else {
-        console.log('Global shortcut registered:', shortcut);
+        console.log('Overlay shortcut registered:', overlayShortcut);
     }
+
+    // Settings: Cmd+Shift+/ (macOS) or Ctrl+Shift+/ (Windows/Linux)
+    const settingsShortcut = process.platform === 'darwin' ? 'Command+Shift+/' : 'Control+Shift+/';
+    const settingsRegistered = globalShortcut.register(settingsShortcut, () => {
+        if (!mainWindow) {
+            createMainWindow();
+            mainWindow.webContents.on('did-finish-load', () => {
+                mainWindow.webContents.send('navigate', 'settings');
+            });
+        } else {
+            mainWindow.show();
+            mainWindow.focus();
+            mainWindow.webContents.send('navigate', 'settings');
+        }
+    });
+
+    if (!settingsRegistered) {
+        console.error('Failed to register settings shortcut:', settingsShortcut);
+    } else {
+        console.log('Settings shortcut registered:', settingsShortcut);
+    }
+}
+
+function unregisterShortcuts() {
+    globalShortcut.unregisterAll();
+    console.log('Global shortcuts unregistered');
+}
+
+// =============================================================================
+// Auth & Profile Helpers
+// =============================================================================
+
+async function loadUserProfile(userId) {
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+    if (error) {
+        console.error('[Auth] Failed to load profile:', error.message);
+        return null;
+    }
+
+    return data;
+}
+
+async function transitionToOverlayMode() {
+    // Close main window if open
+    if (mainWindow) {
+        mainWindow.close();
+    }
+
+    // Initialize Gemini if not already
+    if (!genAI) {
+        genAI = initGemini();
+    }
+
+    // Create overlay and register shortcuts
+    createOverlayWindow();
+    registerShortcuts();
+
+    isAuthenticated = true;
+    console.log('[Auth] Transitioned to overlay mode');
+}
+
+async function transitionToAuthMode() {
+    // Destroy overlay if exists
+    if (overlayWindow) {
+        overlayWindow.destroy();
+        overlayWindow = null;
+    }
+
+    // Unregister shortcuts
+    unregisterShortcuts();
+
+    // Clear user state
+    currentUserProfile = null;
+    isAuthenticated = false;
+
+    // Show main window
+    createMainWindow();
+
+    console.log('[Auth] Transitioned to auth mode');
 }
 
 // =============================================================================
@@ -286,6 +524,10 @@ function registerShortcuts() {
 // =============================================================================
 
 function setupIPC() {
+    // =========================================================================
+    // Existing Overlay Handlers
+    // =========================================================================
+
     ipcMain.handle('generate-text', async (event, prompt) => {
         try {
             const result = await generateText(prompt);
@@ -309,19 +551,271 @@ function setupIPC() {
     ipcMain.on('dismiss', () => {
         hideOverlay();
     });
+
+    // =========================================================================
+    // Auth Handlers
+    // =========================================================================
+
+    ipcMain.handle('auth:sign-up', async (event, { email, password }) => {
+        try {
+            const { data, error } = await supabase.auth.signUp({ email, password });
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            return { success: true, user: data.user };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('auth:sign-in', async (event, { email, password }) => {
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            // Load user profile
+            const profile = await loadUserProfile(data.user.id);
+
+            if (profile) {
+                currentUserProfile = profile;
+            }
+
+            return {
+                success: true,
+                user: data.user,
+                profile,
+                needsOnboarding: !profile?.onboarding_completed,
+            };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('auth:sign-out', async () => {
+        try {
+            await supabase.auth.signOut();
+            await transitionToAuthMode();
+            return { success: true };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('auth:get-session', async () => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            return { success: true, session };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    // =========================================================================
+    // Profile Handlers
+    // =========================================================================
+
+    ipcMain.handle('profile:get', async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                return { success: false, error: 'Not authenticated' };
+            }
+
+            const profile = await loadUserProfile(user.id);
+            if (!profile) {
+                return { success: false, error: 'Profile not found' };
+            }
+
+            currentUserProfile = profile;
+            return { success: true, profile };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('profile:update', async (event, updates) => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                return { success: false, error: 'Not authenticated' };
+            }
+
+            const { data, error } = await supabase
+                .from('user_profiles')
+                .update({ ...updates, updated_at: new Date().toISOString() })
+                .eq('id', user.id)
+                .select()
+                .single();
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            currentUserProfile = data;
+            return { success: true, profile: data };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    // =========================================================================
+    // Onboarding Handlers
+    // =========================================================================
+
+    ipcMain.handle('onboarding:complete', async (event, { displayName, writingStyle, writingStyleGuide }) => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                return { success: false, error: 'Not authenticated' };
+            }
+
+            const { data, error } = await supabase
+                .from('user_profiles')
+                .update({
+                    display_name: displayName,
+                    writing_style: writingStyle,
+                    writing_style_guide: writingStyleGuide || null,
+                    onboarding_completed: true,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('id', user.id)
+                .select()
+                .single();
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            currentUserProfile = data;
+            await transitionToOverlayMode();
+
+            return { success: true };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('analyze-writing-style', async (event, sampleText) => {
+        try {
+            if (!genAI) {
+                genAI = initGemini();
+            }
+
+            if (!genAI) {
+                return { success: false, error: 'Gemini API not initialized' };
+            }
+
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+            const prompt = `Analyze this writing sample and create a brief style guide (2-3 sentences) that describes the tone, vocabulary level, sentence structure, and any distinctive patterns. Be concise and actionable. The style guide will be used to instruct an AI to write in this person's style.
+
+Writing sample:
+"${sampleText}"
+
+Style guide:`;
+
+            const result = await model.generateContent(prompt);
+            const styleGuide = result.response.text();
+
+            return { success: true, styleGuide };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    // =========================================================================
+    // Usage Stats Handler
+    // =========================================================================
+
+    ipcMain.handle('usage:get-stats', async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                return { success: false, error: 'Not authenticated' };
+            }
+
+            const { data, error } = await supabase
+                .from('user_profiles')
+                .select('tokens_used, tokens_remaining, subscription_tier')
+                .eq('id', user.id)
+                .single();
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            return { success: true, stats: data };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    // =========================================================================
+    // Navigation Handler (for main window)
+    // =========================================================================
+
+    ipcMain.on('navigate', (event, route) => {
+        if (mainWindow) {
+            mainWindow.webContents.send('navigate', route);
+        }
+    });
 }
 
 // =============================================================================
 // App Lifecycle
 // =============================================================================
 
-app.whenReady().then(() => {
-    genAI = initGemini();
-    createOverlayWindow();
-    registerShortcuts();
-    setupIPC();
+app.whenReady().then(async () => {
+    // Initialize Supabase (async due to electron-store ESM)
+    supabase = await createSupabaseClient();
 
-    console.log('promptOS is running. Press Cmd+/ (macOS) or Ctrl+/ (Windows/Linux) to open.');
+    if (!supabase) {
+        console.error('[App] Supabase initialization failed. Showing auth window anyway.');
+        createMainWindow();
+        setupIPC();
+        return;
+    }
+
+    // Check for existing session
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session) {
+            // Load user profile
+            const profile = await loadUserProfile(session.user.id);
+
+            if (profile?.onboarding_completed) {
+                // Authenticated + onboarded: enable overlay mode
+                currentUserProfile = profile;
+                genAI = initGemini();
+                createOverlayWindow();
+                registerShortcuts();
+                isAuthenticated = true;
+
+                console.log('[App] Restored session, overlay mode active. Press Cmd+/ to open.');
+            } else {
+                // Needs onboarding
+                currentUserProfile = profile;
+                createMainWindow();
+                // Navigate to onboarding after window loads
+                mainWindow.webContents.on('did-finish-load', () => {
+                    mainWindow.webContents.send('navigate', 'onboarding-1');
+                });
+            }
+        } else {
+            // Not authenticated: show main window (auth page)
+            createMainWindow();
+        }
+    } catch (err) {
+        console.error('[App] Session check failed:', err.message);
+        createMainWindow();
+    }
+
+    setupIPC();
 });
 
 app.on('will-quit', () => {
@@ -329,13 +823,29 @@ app.on('will-quit', () => {
 });
 
 app.on('window-all-closed', () => {
+    // On macOS, don't quit when all windows closed if overlay is active
     if (process.platform !== 'darwin') {
         app.quit();
     }
 });
 
 app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-        createOverlayWindow();
+    // Dock icon clicked
+    if (isAuthenticated && currentUserProfile?.onboarding_completed) {
+        // Show settings window
+        if (!mainWindow) {
+            createMainWindow();
+            mainWindow.webContents.on('did-finish-load', () => {
+                mainWindow.webContents.send('navigate', 'settings');
+            });
+        } else {
+            mainWindow.show();
+            mainWindow.focus();
+        }
+    } else {
+        // Show auth/onboarding window
+        if (!mainWindow) {
+            createMainWindow();
+        }
     }
 });
