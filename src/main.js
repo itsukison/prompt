@@ -61,8 +61,7 @@ function activateApp(appName) {
             return;
         }
 
-        const script = `tell application "${appName}" to activate`;
-        exec(`osascript -e '${script}'`, (error) => {
+        exec(`open -a "${appName}"`, (error) => {
             if (error) {
                 console.error(`[Focus] Failed to activate "${appName}":`, error.message);
                 if (error.message.includes('not allowed') || error.message.includes('accessibility')) {
