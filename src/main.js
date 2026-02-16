@@ -412,6 +412,65 @@ function toggleOverlay() {
     }
 }
 
+/**
+ * Get the currently selected text by simulating a copy command
+ * @returns {Promise<string>} The selected text or empty string
+ */
+async function getSelectedText() {
+    // 1. Store current clipboard content
+    const originalClipboard = clipboard.readText();
+
+    // 2. Clear clipboard to detect if copy worked
+    clipboard.writeText('');
+
+    // 3. Simulate Cmd+C (macOS) or Ctrl+C (Windows/Linux)
+    // We reuse the logic from simulatePaste but for copy
+    console.log('[Selection] Simulating copy...');
+
+    await new Promise((resolve) => {
+        if (process.platform === 'darwin') {
+            exec('osascript -e \'tell application "System Events" to keystroke "c" using command down\'', (error) => {
+                if (error) console.error('[Selection] Copy failed:', error.message);
+                resolve();
+            });
+        } else {
+            // Basic support for other platforms - likely needs xdotool or similar
+            // For now, we'll just try standard Ctrl+C if we can, but main target is macOS
+            // Fallback to no-op for now on non-macOS to avoid issues
+            resolve();
+        }
+    });
+
+    // 4. Wait for clipboard to update (short delay)
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // 5. Read new content
+    const selectedText = clipboard.readText();
+    console.log(`[Selection] Captured: "${selectedText.substring(0, 20)}..."`);
+
+    // 6. Restore original clipboard if no selection was captured OR if we want to be nice
+    // Ideally we want to restore ONLY if we captured something we don't need to keep, 
+    // BUT for "Refine", the user might want that text in clipboard anyway. 
+    // However, if we FAILED to copy (no selection), we MUST restore original.
+    if (!selectedText) {
+        console.log('[Selection] No text selected, restoring clipboard');
+        clipboard.writeText(originalClipboard);
+    } else {
+        // If we DID copy text, strictly speaking we destroyed the user's previous clipboard.
+        // For a "Refine" feature, users *might* expect the selected text to be in clipboard,
+        // but it's cleaner to restore the original state so we don't mess with their workflow.
+        // Let's restore for now to be safe and invisible.
+        // modifying clipboard is side-effect heavy.
+
+        // Wait a bit more to ensure the app processed the copy command before we overwrite it?
+        // Actually, if we read it, we have it. We can restore immediately.
+        console.log('[Selection] Restoring original clipboard');
+        clipboard.writeText(originalClipboard);
+    }
+
+    return selectedText || '';
+}
+
 function showOverlay() {
     if (!overlayWindow) return;
 
@@ -423,24 +482,38 @@ function showOverlay() {
     chatSession = null;
     console.log('[Gemini] Chat session reset');
 
-    // Reposition to current screen
-    const cursorPoint = screen.getCursorScreenPoint();
-    const display = screen.getDisplayNearestPoint(cursorPoint);
-    // Use bounds as requested by user manually in Step 185
-    const { width, height } = display.bounds;
-    const { x: displayX, y: displayY } = display.bounds;
+    // START CAPTURE SEQUENCE
+    // We need to do this async, so we'll fire and forget the window show logic 
+    // inside the async flow, OR just make showOverlay async (but check callers).
+    // Let's keep showOverlay sync-ish in signature but run logic async.
 
-    const windowWidth = 600;
-    const windowHeight = 400;
+    (async () => {
+        // Position window first (invisible) so it's ready? 
+        // No, stay hidden while capturing.
 
-    overlayWindow.setPosition(
-        Math.round(displayX + (width - windowWidth) / 2),
-        Math.round(displayY + height - windowHeight + 45)
-    );
+        // Reposition logic (moved from below)
+        const cursorPoint = screen.getCursorScreenPoint();
+        const display = screen.getDisplayNearestPoint(cursorPoint);
+        const { width, height } = display.bounds;
+        const { x: displayX, y: displayY } = display.bounds;
+        const windowWidth = 600;
+        const windowHeight = 400;
 
-    overlayWindow.show();
-    overlayWindow.focus();
-    overlayWindow.webContents.send('window-shown');
+        overlayWindow.setPosition(
+            Math.round(displayX + (width - windowWidth) / 2),
+            Math.round(displayY + height - windowHeight + 45)
+        );
+
+        // Capture selection
+        const selection = await getSelectedText();
+
+        // Show window
+        overlayWindow.show();
+        overlayWindow.focus();
+
+        // Send event with selection
+        overlayWindow.webContents.send('window-shown', { selection });
+    })();
 }
 
 function hideOverlay() {

@@ -19,7 +19,7 @@ contextBridge.exposeInMainWorld('promptOS', {
 
     // Listen for window events
     onWindowShown: (callback) => {
-        ipcRenderer.on('window-shown', callback);
+        ipcRenderer.on('window-shown', (_, payload) => callback(payload));
         return () => ipcRenderer.removeListener('window-shown', callback);
     },
 

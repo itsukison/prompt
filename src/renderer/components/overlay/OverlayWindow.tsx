@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { usePromptOS } from '../../contexts/PromptOSContext';
 import { useWindowEvents } from '../../hooks/useWindowEvents';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+
 
 // Hoist static SVG outside component to avoid recreation
 const sendIcon = (
@@ -21,6 +21,7 @@ export function OverlayWindow() {
   const inputRef = useRef<HTMLInputElement>(null);
   const isGeneratingRef = useRef(false);
   const [retryStatus, setRetryStatus] = useState('');
+  const [selectionContext, setSelectionContext] = useState('');
 
   // Derived state - no need for separate state
   const hasResult = !!result;
@@ -32,11 +33,15 @@ export function OverlayWindow() {
     setResult('');
     setError('');
     setRetryStatus('');
+    setSelectionContext('');
   }, []);
 
   // Stable callbacks using refs to avoid re-subscription
-  const handleWindowShown = useCallback(() => {
+  const handleWindowShown = useCallback((payload?: { selection?: string }) => {
     handleReset();
+    if (payload?.selection) {
+      setSelectionContext(payload.selection);
+    }
     inputRef.current?.focus();
   }, [handleReset]);
 
@@ -72,7 +77,14 @@ export function OverlayWindow() {
       setError('');
       setRetryStatus('');
 
-      const response = await promptOS.generate(currentPrompt);
+      setRetryStatus('');
+
+      let finalPrompt = currentPrompt;
+      if (selectionContext) {
+        finalPrompt = `Context:\n"""\n${selectionContext}\n"""\n\nUser Request:\n${currentPrompt}`;
+      }
+
+      const response = await promptOS.generate(finalPrompt);
       if (response.success && response.text) {
         setResult(response.text);
       } else {
@@ -86,7 +98,7 @@ export function OverlayWindow() {
       setIsGenerating(false);
       setRetryStatus('');
     }
-  }, [promptOS]);
+  }, [promptOS, selectionContext]);
 
   // Stable insert using functional setState
   const handleInsert = useCallback(async () => {
@@ -113,7 +125,7 @@ export function OverlayWindow() {
   }, [promptOS, handleReset]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.isComposing || e.repeat) return;
+    if (e.nativeEvent.isComposing || e.repeat) return;
 
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -175,6 +187,21 @@ export function OverlayWindow() {
       {retryStatus && !hasResult && !hasError && (
         <div className="mb-3 p-2 px-4 bg-blue-500/10 rounded-2xl border border-blue-500/20 text-blue-200 text-xs animate-pulse w-fit mx-auto backdrop-blur-md">
           <span>{retryStatus}</span>
+        </div>
+      )}
+
+      {/* Selection Context Chip */}
+      {selectionContext && !hasResult && (
+        <div className="mb-3 max-w-[90%] flex items-center gap-2 p-2 px-3 bg-white/10 rounded-xl border border-white/10 backdrop-blur-md animate-slide-up">
+          <div className="text-xs text-gray-300 italic truncate max-w-[300px]">
+            "{selectionContext}"
+          </div>
+          <button
+            onClick={() => setSelectionContext('')}
+            className="text-gray-400 hover:text-white transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18" /><path d="M6 6l12 12" /></svg>
+          </button>
         </div>
       )}
 

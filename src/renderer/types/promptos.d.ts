@@ -3,7 +3,7 @@ export interface PromptOSAPI {
   insert: (text: string) => Promise<{ success: boolean; error?: string }>;
   dismiss: () => void;
   setHeight: (height: number) => void;
-  onWindowShown: (callback: () => void) => () => void;
+  onWindowShown: (callback: (payload?: { selection?: string }) => void) => () => void;
   onWindowHidden: (callback: () => void) => () => void;
   auth: {
     signUp: (credentials: { email: string; password: string }) => Promise<any>;
