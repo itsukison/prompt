@@ -25,6 +25,7 @@ let overlayWindow = null;
 let mainWindow = null;
 let genAI = null;
 let supabase = null;
+let chatSession = null; // Store current chat session
 let previousApp = null; // Store the app that was focused before we showed the overlay
 let currentUserProfile = null; // Cached user profile with writing style
 let isAuthenticated = false;
@@ -190,6 +191,53 @@ function getWritingStyleGuide() {
     return WRITING_STYLE_GUIDES[writing_style] || WRITING_STYLE_GUIDES.professional;
 }
 
+async function generateWithRetry(operation, retries = 3) {
+    let attempt = 0;
+    while (attempt < retries) {
+        try {
+            return await operation();
+        } catch (error) {
+            // CRITICAL: Check for hard quota/billing limits - FAIL IMMEDIATELY
+            const errorMessage = error.message?.toLowerCase() || '';
+            if (errorMessage.includes("quota") ||
+                errorMessage.includes("billing") ||
+                errorMessage.includes("insufficient_quota")) {
+                console.error('[Gemini] Quota exceeded. Stopping retries.');
+                throw error;
+            }
+
+            // Check for transient 429 or 503 (service unavailable)
+            const isTransient = error.response?.status === 429 || error.status === 429 || error.status === 503;
+
+            if (isTransient && attempt < retries - 1) {
+                // Calculate wait time
+                let waitTime = Math.pow(2, attempt) * 1000; // Default: 1s, 2s, 4s...
+
+                // Respect Retry-After header if available
+                if (error.response?.headers?.['retry-after']) {
+                    const retryAfter = parseInt(error.response.headers['retry-after'], 10);
+                    if (!isNaN(retryAfter)) {
+                        waitTime = retryAfter * 1000;
+                    }
+                }
+
+                console.warn(`[Gemini] Rate limit hit (Attempt ${attempt + 1}/${retries}). Retrying in ${waitTime}ms...`);
+
+                // Send status update to renderer for UX
+                if (overlayWindow) {
+                    overlayWindow.webContents.send('generation-status', `Server busy, retrying in ${Math.ceil(waitTime / 1000)}s...`);
+                }
+
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+                attempt++;
+            } else {
+                // Not transient or out of retries
+                throw error;
+            }
+        }
+    }
+}
+
 async function generateText(prompt) {
     if (!genAI) {
         throw new Error('Gemini API not initialized. Check your GEMINI_API_KEY.');
@@ -206,7 +254,19 @@ async function generateText(prompt) {
         systemInstruction
     });
 
-    const result = await model.generateContent(prompt);
+    // Initialize chat session if needed
+    if (!chatSession) {
+        chatSession = model.startChat({
+            history: [],
+            generationConfig: {
+                maxOutputTokens: 2048,
+            },
+        });
+        console.log('[Gemini] Started new chat session');
+    }
+
+    // Use retry wrapper with sendMessage
+    const result = await generateWithRetry(() => chatSession.sendMessage(prompt));
     const response = await result.response;
     const text = response.text();
 
@@ -251,6 +311,15 @@ async function generateText(prompt) {
 // Window Management
 // =============================================================================
 
+// ... (imports)
+
+// Icon path
+const ICON_PATH = path.join(__dirname, '..', 'public', 'logo.png');
+
+// ... (rest of configuration)
+
+// ...
+
 function createMainWindow() {
     if (mainWindow) {
         mainWindow.show();
@@ -269,6 +338,7 @@ function createMainWindow() {
         show: true,
         titleBarStyle: 'hiddenInset',
         backgroundColor: '#1a1a1a',
+        icon: ICON_PATH, // Set icon
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -285,6 +355,7 @@ function createMainWindow() {
     // Show dock when main window is open
     if (process.platform === 'darwin') {
         app.dock?.show?.();
+        app.dock?.setIcon?.(ICON_PATH); // Set dock icon
     }
 
     return mainWindow;
@@ -312,6 +383,7 @@ function createOverlayWindow() {
         resizable: false,
         hasShadow: false,
         show: false,
+        icon: ICON_PATH, // Set icon
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -346,6 +418,10 @@ function showOverlay() {
     // Capture the frontmost app BEFORE we show our overlay
     previousApp = getFrontmostApp();
     console.log(`[Focus] Captured previous app: "${previousApp}"`);
+
+    // Reset chat session on new overlay show to ensure fresh context
+    chatSession = null;
+    console.log('[Gemini] Chat session reset');
 
     // Reposition to current screen
     const cursorPoint = screen.getCursorScreenPoint();
@@ -515,6 +591,11 @@ async function transitionToAuthMode() {
 
     // Show main window
     createMainWindow();
+
+    // Force navigation to auth page
+    if (mainWindow) {
+        mainWindow.webContents.send('navigate', 'auth');
+    }
 
     console.log('[Auth] Transitioned to auth mode');
 }

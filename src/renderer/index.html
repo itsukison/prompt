@@ -1,57 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>promptOS</title>
-    <link rel="stylesheet" href="./styles.css">
 </head>
-
-<body
-    class="bg-transparent h-screen flex flex-col justify-end items-center p-3 pb-6 font-[-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,Oxygen,Ubuntu,sans-serif]">
-    <!-- Result Section -->
-    <div id="result-section"
-        class="hidden mb-3 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-[20px] p-5 shadow-lg animate-slide-up origin-bottom w-full max-h-[calc(100vh-100px)] overflow-y-auto">
-        <div id="result-text"
-            class="result-text text-[15px] leading-relaxed text-gray-200 max-h-[350px] overflow-y-auto whitespace-pre-wrap pr-1">
-        </div>
-        <div class="flex gap-2 mt-2 justify-end">
-            <button id="refine-btn"
-                class="bg-transparent border-none text-[13px] text-gray-400 cursor-pointer px-2.5 py-1.5 rounded-xl transition-all duration-150 hover:bg-white/[0.05] hover:text-gray-200 active:scale-95">Refine</button>
-            <button id="insert-btn"
-                class="bg-[#FF6B00] text-white border-none rounded-xl px-3.5 py-1.5 text-[13px] font-medium cursor-pointer transition-all duration-200 hover:bg-[#ff8533] active:scale-95">Insert</button>
-        </div>
-    </div>
-
-    <!-- Error Section -->
-    <div id="error-section"
-        class="hidden mb-3 p-3 px-4 bg-red-50 rounded-2xl border border-red-300 shadow-[0_4px_12px_rgba(220,38,38,0.1)] text-red-700 text-sm animate-slide-up w-full">
-        <span id="error-text"></span>
-    </div>
-
-    <!-- Input Bar -->
-    <div
-        class="input-bar flex items-center gap-3.5 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-[28px] py-2.5 px-5 shadow-lg w-[92%]">
-        <img src="./logo.png" class="w-6 h-6 object-contain flex-shrink-0 opacity-80" alt="Logo">
-        <input type="text" id="prompt-input" placeholder="Ask AI..." autocomplete="off" spellcheck="false"
-            class="flex-1 bg-transparent border-none text-base text-gray-100 outline-none font-normal placeholder:text-gray-500">
-        <button id="cancel-btn"
-            class="hidden bg-transparent border-none text-sm text-gray-500 cursor-pointer px-3 py-2 transition-colors duration-150 hover:text-gray-700">Cancel</button>
-        <button id="generate-btn"
-            class="bg-transparent border-none w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-all duration-200 text-gray-500 hover:bg-black/5 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-transparent">
-            <svg class="icon-send w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2">
-                <path d="M22 2L11 13" />
-                <path d="M22 2L15 22L11 13L2 9L22 2Z" />
-            </svg>
-            <span class="btn-loading hidden flex items-center justify-center">
-                <span class="spinner"></span>
-            </span>
-        </button>
-    </div>
-
-    <script type="module" src="./app.js"></script>
+<body>
+    <div id="root"></div>
+    <script type="module" src="./overlay.tsx"></script>
 </body>
-
 </html>

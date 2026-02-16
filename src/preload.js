@@ -28,6 +28,12 @@ contextBridge.exposeInMainWorld('promptOS', {
         return () => ipcRenderer.removeListener('window-hidden', callback);
     },
 
+    // Listen for generation status updates (retries, etc.)
+    onGenerationStatus: (callback) => {
+        ipcRenderer.on('generation-status', (_, status) => callback(status));
+        return () => ipcRenderer.removeListener('generation-status', callback);
+    },
+
     // =========================================================================
     // Auth Functions
     // =========================================================================
