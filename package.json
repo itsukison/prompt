@@ -9,7 +9,8 @@
     "dev": "vite build --watch",
     "build:renderer": "vite build",
     "package": "npm run build:renderer && electron-builder --dir",
-    "build": "npm run build:renderer && electron-builder --config electron-builder.yml"
+    "build": "npm run build:renderer && electron-builder --config electron-builder.yml",
+    "release": "npm run build:renderer && electron-builder --config electron-builder.yml --publish always"
   },
   "author": "promptOS",
   "license": "MIT",
@@ -29,6 +30,7 @@
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
+    "@electron/notarize": "^3.1.1",
     "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.7.0",

@@ -4,6 +4,14 @@ icon: public/logo.png
 directories:
   output: release
 
+afterSign: scripts/notarize.js
+
+publish:
+  provider: github
+  owner: itsukison
+  repo: prompt
+  releaseType: draft
+
 mac:
   category: public.app-category.productivity
   target:
@@ -13,6 +21,10 @@ mac:
   gatekeeperAssess: false
   entitlements: entitlements.plist
   entitlementsInherit: entitlements.plist
+  notarize: false
+
+dmg:
+  sign: false
 
 win:
   target:
@@ -27,5 +39,6 @@ linux:
 files:
   - src/main.js
   - src/preload.js
+  - src/embedding.js
   - dist/renderer/**/*
   - package.json
