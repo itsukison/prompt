@@ -85,6 +85,18 @@ contextBridge.exposeInMainWorld('promptOS', {
     },
 
     // =========================================================================
+    // Memory Functions
+    // =========================================================================
+
+    memory: {
+        getAll: () => ipcRenderer.invoke('memory:get-all'),
+        update: (memoryId, content) => ipcRenderer.invoke('memory:update', memoryId, content),
+        delete: (memoryId) => ipcRenderer.invoke('memory:delete', memoryId),
+        toggle: (enabled) => ipcRenderer.invoke('memory:toggle', enabled),
+        getStats: () => ipcRenderer.invoke('memory:get-stats'),
+    },
+
+    // =========================================================================
     // Navigation (for main window routing)
     // =========================================================================
 

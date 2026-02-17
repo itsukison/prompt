@@ -40,6 +40,13 @@ export interface PromptOSAPI {
   usage: {
     getStats: () => Promise<any>;
   };
+  memory: {
+    getAll: () => Promise<any>;
+    update: (memoryId: string, content: string) => Promise<any>;
+    delete: (memoryId: string) => Promise<any>;
+    toggle: (enabled: boolean) => Promise<any>;
+    getStats: () => Promise<any>;
+  };
   onNavigate: (callback: (route: string) => void) => () => void;
 }
 

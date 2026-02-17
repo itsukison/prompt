@@ -3,6 +3,7 @@ const path = require('path');
 const { exec, execSync } = require('child_process');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { createSupabaseClient, getSupabaseClient } = require('./supabase');
+const { saveMemoryWithEmbedding, embedText, findSimilarMemories } = require('./embedding');
 require('dotenv').config();
 
 // =============================================================================
@@ -29,6 +30,10 @@ let chatSession = null; // Store current chat session
 let previousApp = null; // Store the app that was focused before we showed the overlay
 let currentUserProfile = null; // Cached user profile with writing style
 let isAuthenticated = false;
+
+// Memory session tracking
+let currentMemorySession = null; // Stores { id, interactions: [], startedAt }
+let sessionAnalysisTimeout = null; // Debounce session analysis
 
 // Single instance lock
 const gotTheLock = app.requestSingleInstanceLock();
@@ -175,20 +180,127 @@ function initGemini() {
 }
 
 /**
- * Get the writing style guide for the current user
+ * Get the writing style guide for the current user (with memory enhancement)
  */
-function getWritingStyleGuide() {
+async function getWritingStyleGuide() {
     if (!currentUserProfile) return '';
 
     const { writing_style, writing_style_guide } = currentUserProfile;
 
-    // If custom style with a guide, use that
+    // Get base style guide
+    let baseGuide = '';
     if (writing_style === 'custom' && writing_style_guide) {
-        return writing_style_guide;
+        baseGuide = writing_style_guide;
+    } else {
+        baseGuide = WRITING_STYLE_GUIDES[writing_style] || WRITING_STYLE_GUIDES.professional;
     }
 
-    // Otherwise use preset guide
-    return WRITING_STYLE_GUIDES[writing_style] || WRITING_STYLE_GUIDES.professional;
+    // Enhance with communication style memories if enabled
+    if (supabase && currentUserProfile.memory_enabled !== false) {
+        try {
+            const { data: styleMemories, error } = await supabase
+                .from('user_memories')
+                .select('content')
+                .eq('user_id', currentUserProfile.id)
+                .eq('category', 'communication_style')
+                .eq('is_active', true)
+                .limit(3);
+
+            if (!error && styleMemories && styleMemories.length > 0) {
+                const styleNotes = styleMemories.map(m => m.content).join(' ');
+                return `${baseGuide}\n\nUser's communication patterns: ${styleNotes}`;
+            }
+        } catch (err) {
+            console.error('[Memory] Failed to fetch style memories:', err.message);
+        }
+    }
+
+    return baseGuide;
+}
+
+/**
+ * Retrieve relevant memories for a given prompt using semantic search
+ * @param {string} prompt - User's prompt
+ * @returns {Promise<string>} - Formatted memory context string
+ */
+async function getRelevantMemories(prompt) {
+    if (!supabase || !currentUserProfile || currentUserProfile.memory_enabled === false) {
+        return '';
+    }
+
+    // Skip memory retrieval for simple/short prompts
+    const trimmedPrompt = prompt.trim();
+    if (trimmedPrompt.length < 15 || trimmedPrompt.split(' ').length < 3) {
+        return '';
+    }
+
+    // EXCEPTION: Always use memory for context-aware requests
+    const contextAwarePatterns = [
+        /\b(reply|respond|answer)\s*(to)?\s*(this|the)?\b/i,
+        /\bwrite\s+(a\s+)?(response|reply|answer)/i,
+        /\b(email|message|letter)\s+(to|for|about)/i,
+        /\bfill\s+in/i,
+        /\b(my|our)\s+(name|email|company|role)/i
+    ];
+    
+    const needsContext = contextAwarePatterns.some(pattern => pattern.test(trimmedPrompt));
+    
+    if (!needsContext) {
+        // Skip for generic/simple tasks (heuristic check)
+        const simpleTaskPatterns = [
+            /^write\s+(hello|hi|hey)/i,
+            /^make\s+it\s+(shorter|longer|better)/i,
+            /^fix\s+grammar/i,
+            /^translate/i,
+            /^summarize/i
+        ];
+        
+        if (simpleTaskPatterns.some(pattern => pattern.test(trimmedPrompt))) {
+            console.log('[Memory] Skipping memory retrieval for simple task');
+            return '';
+        }
+    } else {
+        console.log('[Memory] Context-aware request detected, using memory');
+    }
+
+    try {
+        // Embed the prompt
+        const promptEmbedding = await embedText(prompt);
+
+        // Search for similar memories (top 5, threshold 0.7)
+        const similarMemories = await findSimilarMemories(
+            supabase,
+            currentUserProfile.id,
+            promptEmbedding,
+            0.7,
+            5
+        );
+
+        if (!similarMemories || similarMemories.length === 0) {
+            return '';
+        }
+
+        // Group by category and format
+        const memoryGroups = {};
+        for (const memory of similarMemories) {
+            if (!memoryGroups[memory.category]) {
+                memoryGroups[memory.category] = [];
+            }
+            memoryGroups[memory.category].push(memory.content);
+        }
+
+        // Format as context string
+        const contextParts = [];
+        for (const [category, contents] of Object.entries(memoryGroups)) {
+            const categoryName = category.replace(/_/g, ' ');
+            contextParts.push(`${categoryName}: ${contents.join('; ')}`);
+        }
+
+        return contextParts.join('\n');
+    } catch (error) {
+        console.error('[Memory] Failed to retrieve relevant memories:', error.message);
+        return '';
+    }
 }
 
 async function generateWithRetry(operation, retries = 3) {
@@ -243,11 +355,20 @@ async function generateText(prompt, screenshotDataUrl = null) {
         throw new Error('Gemini API not initialized. Check your GEMINI_API_KEY.');
     }
 
-    // Build system instruction with writing style
-    const styleGuide = getWritingStyleGuide();
-    const systemInstruction = styleGuide
-        ? `Writing style: ${styleGuide}\n\nYou are a helpful writing assistant. Generate concise, well-written text based on the user's request. Output only the requested text, no explanations or meta-commentary. Match the specified writing style.`
-        : 'You are a helpful writing assistant. Generate concise, well-written text based on the user\'s request. Output only the requested text, no explanations or meta-commentary. Match the tone and style appropriate for the request.';
+    // Build system instruction with writing style and relevant memories
+    const styleGuide = await getWritingStyleGuide();
+    const relevantMemories = await getRelevantMemories(prompt);
+
+    let systemInstruction = '';
+    if (styleGuide) {
+        systemInstruction = `Writing style: ${styleGuide}`;
+    }
+
+    if (relevantMemories) {
+        systemInstruction += `\n\nPersonal context about the user:\n${relevantMemories}`;
+    }
+
+    systemInstruction += '\n\nYou are a helpful writing assistant. Generate concise, well-written text based on the user\'s request. Use the personal context naturally when relevant (e.g., for filling in sender info, matching their style), but don\'t overuse it in simple tasks. Output only the requested text, no explanations or meta-commentary.';
 
     const model = genAI.getGenerativeModel({
         model: 'gemini-3-flash-preview',
@@ -351,7 +472,150 @@ async function generateText(prompt, screenshotDataUrl = null) {
         }
     }
 
+    // Track interaction for memory session
+    if (currentMemorySession && isAuthenticated && currentUserProfile?.memory_enabled !== false) {
+        currentMemorySession.interactions.push({
+            prompt: prompt.substring(0, 1000), // Limit length
+            response: text.substring(0, 1000),
+            timestamp: new Date().toISOString()
+        });
+        console.log(`[Memory] Tracked interaction (${currentMemorySession.interactions.length} total)`);
+    }
+
     return text;
+}
+
+// =============================================================================
+// Memory Analysis
+// =============================================================================
+
+/**
+ * Analyze a session to extract memorable information
+ * @param {Object} session - Session object with interactions array
+ */
+async function analyzeSessionForMemories(session) {
+    if (!genAI || !supabase || !isAuthenticated || !currentUserProfile) {
+        console.log('[Memory] Skipping analysis: prerequisites not met');
+        return;
+    }
+
+    // Check if memory is enabled for this user
+    if (currentUserProfile.memory_enabled === false) {
+        console.log('[Memory] Memory disabled for user, skipping analysis');
+        return;
+    }
+
+    try {
+        console.log(`[Memory] Analyzing session with ${session.interactions.length} interactions`);
+
+        // Build conversation context for LLM
+        const conversationText = session.interactions
+            .map((interaction, i) => {
+                return `[${i + 1}] User: ${interaction.prompt}\nAssistant: ${interaction.response}`;
+            })
+            .join('\n\n');
+
+        // Use cheap model for analysis
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-2.0-flash-lite'
+        });
+
+        const analysisPrompt = `Analyze this conversation between a user and an AI writing assistant. Extract useful information that would help personalize future interactions.
+
+Conversation:
+${conversationText}
+
+Extract the following types of information (only if clearly present):
+1. **Personal Info**: Name, role/job, location, company, email signature preferences, etc.
+2. **Communication Style**: How they prefer to communicate (formal/casual, emoji usage, sentence structure, common phrases, tone preferences)
+3. **Preferences**: Preferred formats (bullets vs paragraphs), topics they mention frequently, things they care about
+4. **Work Context**: Projects they're working on, colleagues/clients mentioned, industry/domain
+
+Return a JSON array of memories. Each memory should have:
+- "category": one of ["personal_info", "communication_style", "preferences", "work_context"]
+- "content": a clear, concise statement (1-2 sentences) about what you learned
+- "confidence": "high" or "medium" (only include high/medium confidence items)
+
+If you found nothing useful to remember, return an empty array [].
+
+Example output:
+[
+  {"category": "personal_info", "content": "User's name is Sarah and works as a product manager at TechCorp.", "confidence": "high"},
+  {"category": "communication_style", "content": "Prefers concise, bullet-pointed responses. Uses casual tone with phrases like 'circling back' and 'touching base'.", "confidence": "high"}
+]
+
+Return ONLY valid JSON, no other text.`;
+
+        const result = await model.generateContent(analysisPrompt);
+        const responseText = result.response.text().trim();
+
+        // Parse JSON response
+        let memories = [];
+        try {
+            // Remove markdown code blocks if present
+            const jsonText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+            memories = JSON.parse(jsonText);
+        } catch (parseError) {
+            console.error('[Memory] Failed to parse LLM response as JSON:', parseError.message);
+            console.error('[Memory] Response:', responseText.substring(0, 200));
+            return;
+        }
+
+        if (!Array.isArray(memories) || memories.length === 0) {
+            console.log('[Memory] No useful memories extracted from session');
+            return;
+        }
+
+        console.log(`[Memory] Extracted ${memories.length} potential memories`);
+
+        // Save session to database first
+        const { data: savedSession, error: sessionError } = await supabase
+            .from('memory_sessions')
+            .insert({
+                user_id: currentUserProfile.id,
+                session_data: session.interactions,
+                analyzed: true,
+                created_at: session.startedAt,
+                closed_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+        if (sessionError) {
+            console.error('[Memory] Failed to save session:', sessionError.message);
+        }
+
+        // Process each memory with embedding and duplicate checking
+        for (const memory of memories) {
+            if (!memory.content || !memory.category) continue;
+
+            try {
+                const savedMemory = await saveMemoryWithEmbedding(
+                    supabase,
+                    currentUserProfile.id,
+                    memory.content,
+                    memory.category,
+                    {
+                        confidence: memory.confidence || 'medium',
+                        session_id: savedSession?.id,
+                        extracted_at: new Date().toISOString()
+                    }
+                );
+
+                if (savedMemory) {
+                    console.log(`[Memory] Saved: [${memory.category}] ${memory.content.substring(0, 50)}...`);
+                } else {
+                    console.log(`[Memory] Skipped duplicate: ${memory.content.substring(0, 50)}...`);
+                }
+            } catch (error) {
+                console.error('[Memory] Failed to save memory with embedding:', error.message);
+            }
+        }
+
+        console.log('[Memory] Session analysis complete');
+    } catch (error) {
+        console.error('[Memory] Session analysis failed:', error.message);
+    }
 }
 
 // =============================================================================
@@ -727,6 +991,16 @@ function showOverlay() {
     chatSession = null;
     console.log('[Gemini] Chat session reset');
 
+    // Initialize new memory session
+    if (!currentMemorySession) {
+        currentMemorySession = {
+            id: null, // Will be created in DB if session has interactions
+            interactions: [],
+            startedAt: new Date().toISOString()
+        };
+        console.log('[Memory] New session started');
+    }
+
     // START CAPTURE SEQUENCE
     // We need to do this async, so we'll fire and forget the window show logic 
     // inside the async flow, OR just make showOverlay async (but check callers).
@@ -765,6 +1039,9 @@ function hideOverlay() {
     if (!overlayWindow) return;
     overlayWindow.hide();
     overlayWindow.webContents.send('window-hidden');
+    
+    // Note: Session analysis now happens on app quit, not on overlay hide
+    // Session persists across multiple overlay open/close cycles
 }
 
 // =============================================================================
@@ -1206,6 +1483,166 @@ Style guide:`;
     });
 
     // =========================================================================
+    // Memory Handlers
+    // =========================================================================
+
+    ipcMain.handle('memory:get-all', async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                return { success: false, error: 'Not authenticated' };
+            }
+
+            const { data, error } = await supabase
+                .from('user_memories')
+                .select('id, content, category, created_at, metadata, is_active')
+                .eq('user_id', user.id)
+                .eq('is_active', true)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            return { success: true, memories: data || [] };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('memory:update', async (event, memoryId, content) => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                return { success: false, error: 'Not authenticated' };
+            }
+
+            // Regenerate embedding for updated content
+            const { embedText } = require('./embedding');
+            const embedding = await embedText(content);
+
+            const { data, error } = await supabase
+                .from('user_memories')
+                .update({
+                    content,
+                    embedding,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', memoryId)
+                .eq('user_id', user.id)
+                .select()
+                .single();
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            return { success: true, memory: data };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('memory:delete', async (event, memoryId) => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                return { success: false, error: 'Not authenticated' };
+            }
+
+            // Soft delete by setting is_active to false
+            const { error } = await supabase
+                .from('user_memories')
+                .update({ is_active: false })
+                .eq('id', memoryId)
+                .eq('user_id', user.id);
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            return { success: true };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('memory:toggle', async (event, enabled) => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                return { success: false, error: 'Not authenticated' };
+            }
+
+            const { data, error } = await supabase
+                .from('user_profiles')
+                .update({ memory_enabled: enabled })
+                .eq('id', user.id)
+                .select()
+                .single();
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            // Update local cache
+            if (currentUserProfile) {
+                currentUserProfile.memory_enabled = enabled;
+            }
+
+            return { success: true, profile: data };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('memory:get-stats', async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                return { success: false, error: 'Not authenticated' };
+            }
+
+            // Get total count and breakdown by category
+            const { data: memories, error } = await supabase
+                .from('user_memories')
+                .select('category')
+                .eq('user_id', user.id)
+                .eq('is_active', true);
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            // Get last session date
+            const { data: lastSession } = await supabase
+                .from('memory_sessions')
+                .select('closed_at')
+                .eq('user_id', user.id)
+                .order('closed_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            // Calculate stats
+            const byCategory = {};
+            memories.forEach(m => {
+                byCategory[m.category] = (byCategory[m.category] || 0) + 1;
+            });
+
+            return {
+                success: true,
+                stats: {
+                    total: memories.length,
+                    by_category: byCategory,
+                    last_session: lastSession?.closed_at || null
+                }
+            };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    // =========================================================================
     // Navigation Handler (for main window)
     // =========================================================================
 
@@ -1277,6 +1714,28 @@ app.whenReady().then(async () => {
     }
 
     setupIPC();
+});
+
+// Analyze memory session before app quits
+app.on('before-quit', async (event) => {
+    // Only analyze if we have a session with enough interactions
+    if (currentMemorySession && currentMemorySession.interactions.length >= 2) {
+        console.log(`[Memory] Analyzing session before app quit (${currentMemorySession.interactions.length} interactions)`);
+        
+        // Prevent quit temporarily to finish analysis
+        event.preventDefault();
+        
+        try {
+            await analyzeSessionForMemories(currentMemorySession);
+            console.log('[Memory] Session analysis complete, app will now quit');
+        } catch (error) {
+            console.error('[Memory] Session analysis failed:', error.message);
+        } finally {
+            currentMemorySession = null;
+            // Now actually quit
+            app.quit();
+        }
+    }
 });
 
 app.on('will-quit', () => {

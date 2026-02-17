@@ -6,10 +6,12 @@ import {
   Settings,
   User,
   CreditCard,
-  BarChart3,
   LogOut,
   Keyboard,
-  Check
+  Check,
+  Brain,
+  Trash2,
+  Edit3
 } from 'lucide-react';
 import { ShortcutsDisplay } from './ShortcutsDisplay';
 import { Button } from '@/components/ui/button';
@@ -26,6 +28,21 @@ interface ProfileData {
   tokens_remaining: number;
   subscription_tier: string;
   onboarding_completed: boolean;
+  memory_enabled?: boolean;
+}
+
+interface Memory {
+  id: string;
+  content: string;
+  category: string;
+  created_at: string;
+  metadata?: any;
+}
+
+interface MemoryStats {
+  total: number;
+  by_category: Record<string, number>;
+  last_session?: string;
 }
 
 export function SettingsPage() {
@@ -40,6 +57,13 @@ export function SettingsPage() {
   const [editedName, setEditedName] = useState('');
   const [selectedStyle, setSelectedStyle] = useState('professional');
   const [customStyleInput, setCustomStyleInput] = useState('');
+
+  // Memory states
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [memoryStats, setMemoryStats] = useState<MemoryStats | null>(null);
+  const [memoryEnabled, setMemoryEnabled] = useState(true);
+  const [editingMemoryId, setEditingMemoryId] = useState<string | null>(null);
+  const [editingMemoryContent, setEditingMemoryContent] = useState('');
 
   // Sidebar collapse (lazy init from localStorage)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
@@ -90,7 +114,39 @@ export function SettingsPage() {
     };
   }, [promptOS]);
 
+  // Load memories when memory tab is active
+  useEffect(() => {
+    if (activeTab !== 'memory') return;
 
+    let cancelled = false;
+
+    (async () => {
+      try {
+        // Load memories
+        const memoriesResult = await promptOS.memory.getAll();
+        if (!cancelled && memoriesResult.success) {
+          setMemories(memoriesResult.memories || []);
+        }
+
+        // Load stats
+        const statsResult = await promptOS.memory.getStats();
+        if (!cancelled && statsResult.success) {
+          setMemoryStats(statsResult.stats);
+        }
+
+        // Set memory enabled state from profile
+        if (profile) {
+          setMemoryEnabled(profile.memory_enabled !== false);
+        }
+      } catch (err) {
+        console.error('Failed to load memories:', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, promptOS, profile]);
 
   const handleSidebarToggle = useCallback(() => {
     setSidebarCollapsed(prev => !prev);
@@ -163,6 +219,62 @@ export function SettingsPage() {
     }
   }, [promptOS]);
 
+  // Memory handlers
+  const handleMemoryToggle = useCallback(async (enabled: boolean) => {
+    try {
+      const result = await promptOS.memory.toggle(enabled);
+      if (result.success) {
+        setMemoryEnabled(enabled);
+        setProfile(result.profile);
+      } else {
+        alert('Failed to update memory setting');
+      }
+    } catch (err) {
+      alert('Failed to update memory setting');
+    }
+  }, [promptOS]);
+
+  const handleMemoryEdit = useCallback(async (memoryId: string) => {
+    if (!editingMemoryContent.trim()) return;
+
+    try {
+      const result = await promptOS.memory.update(memoryId, editingMemoryContent.trim());
+      if (result.success) {
+        // Update local state
+        setMemories(prev =>
+          prev.map(m => (m.id === memoryId ? { ...m, content: editingMemoryContent.trim() } : m))
+        );
+        setEditingMemoryId(null);
+        setEditingMemoryContent('');
+      } else {
+        alert('Failed to update memory');
+      }
+    } catch (err) {
+      alert('Failed to update memory');
+    }
+  }, [editingMemoryContent, promptOS]);
+
+  const handleMemoryDelete = useCallback(async (memoryId: string) => {
+    if (!confirm('Are you sure you want to delete this memory?')) return;
+
+    try {
+      const result = await promptOS.memory.delete(memoryId);
+      if (result.success) {
+        // Remove from local state
+        setMemories(prev => prev.filter(m => m.id !== memoryId));
+        // Update stats
+        const statsResult = await promptOS.memory.getStats();
+        if (statsResult.success) {
+          setMemoryStats(statsResult.stats);
+        }
+      } else {
+        alert('Failed to delete memory');
+      }
+    } catch (err) {
+      alert('Failed to delete memory');
+    }
+  }, [promptOS]);
+
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-claude-bg text-zinc-200">
@@ -217,13 +329,13 @@ export function SettingsPage() {
             <User className="w-4 h-4 shrink-0" />
             <span className="whitespace-nowrap">Account</span>
           </TabsTrigger>
+          <TabsTrigger value="memory">
+            <Brain className="w-4 h-4 shrink-0" />
+            <span className="whitespace-nowrap">Memory</span>
+          </TabsTrigger>
           <TabsTrigger value="billing">
             <CreditCard className="w-4 h-4 shrink-0" />
             <span className="whitespace-nowrap">Billing</span>
-          </TabsTrigger>
-          <TabsTrigger value="usage">
-            <BarChart3 className="w-4 h-4 shrink-0" />
-            <span className="whitespace-nowrap">Usage</span>
           </TabsTrigger>
           <TabsTrigger value="shortcuts">
             <Keyboard className="w-4 h-4 shrink-0" />
@@ -269,8 +381,8 @@ export function SettingsPage() {
             <p className="text-zinc-500 text-sm">
               {activeTab === 'general' && 'Manage your workspace preferences and settings.'}
               {activeTab === 'account' && 'View and manage your account information.'}
+              {activeTab === 'memory' && 'View and manage information the AI remembers about you.'}
               {activeTab === 'billing' && 'Manage your subscription and billing.'}
-              {activeTab === 'usage' && 'View your usage statistics.'}
               {activeTab === 'shortcuts' && 'View keyboard shortcuts and get started.'}
             </p>
           </div>
@@ -283,7 +395,7 @@ export function SettingsPage() {
               <div className="flex justify-between items-center py-3 hover:bg-zinc-900/20 -mx-3 px-3 rounded-md transition-colors">
                 <div className="space-y-0.5">
                   <h3 className="text-sm font-medium text-zinc-200">Display Name</h3>
-                  <p className="text-xs text-zinc-500">Visible to other members of your workspace.</p>
+                  <p className="text-sm text-zinc-400">{profile?.display_name || 'Not set'}</p>
                 </div>
                 {!isEditingName ? (
                   <Button
@@ -342,7 +454,7 @@ export function SettingsPage() {
                           {styleId === 'custom' ? 'Custom Instructions' : styleId.charAt(0).toUpperCase() + styleId.slice(1)}
                         </span>
                         {selectedStyle === styleId && (
-                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                          <div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
                         )}
                       </div>
                       {styleId !== 'custom' ? (
@@ -411,6 +523,140 @@ export function SettingsPage() {
             </section>
           </TabsContent>
 
+          {/* Tab: Memory */}
+          <TabsContent value="memory" className="space-y-8 animate-fade-in">
+            {/* Memory Toggle */}
+            <section className="space-y-3">
+              <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-4">Memory System</h3>
+              <div className="flex justify-between items-center py-3 hover:bg-zinc-900/20 -mx-3 px-3 rounded-md transition-colors">
+                <div className="space-y-0.5">
+                  <h3 className="text-sm font-medium text-zinc-200">Enable Memory</h3>
+                  <p className="text-xs text-zinc-500">Allow the AI to remember information about you</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={memoryEnabled}
+                    onChange={(e) => handleMemoryToggle(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                </label>
+              </div>
+            </section>
+
+            {/* Memory Statistics */}
+            {memoryStats && (
+              <section className="space-y-3">
+                <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-4">Statistics</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-0">
+                    <p className="text-2xl font-semibold text-zinc-100">{memoryStats.total}</p>
+                    <p className="text-xs text-zinc-500 mt-1">Total Memories</p>
+                  </div>
+                  {Object.entries(memoryStats.by_category).map(([category, count]) => (
+                    <div key={category} className="p-0">
+                      <p className="text-2xl font-semibold text-zinc-100">{count}</p>
+                      <p className="text-xs text-zinc-500 mt-1 capitalize">{category.replace(/_/g, ' ')}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Saved Memories */}
+            <section className="space-y-3">
+              <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-4">Saved Memories</h3>
+
+              {memories.length === 0 ? (
+                <div className="text-center py-12 px-4 bg-zinc-900/10 rounded-lg border border-zinc-800/50">
+                  <Brain className="w-12 h-12 text-zinc-600 mx-auto mb-3" />
+                  <p className="text-sm text-zinc-400 mb-1">No memories saved yet</p>
+                  <p className="text-xs text-zinc-600">The AI will learn about you as you use it</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {['personal_info', 'communication_style', 'preferences', 'work_context'].map(category => {
+                    const categoryMemories = memories.filter(m => m.category === category);
+                    if (categoryMemories.length === 0) return null;
+
+                    return (
+                      <div key={category} className="space-y-2">
+                        <h4 className="text-xs font-medium text-zinc-400 uppercase tracking-wider mt-6 mb-3">
+                          {category.replace(/_/g, ' ')}
+                        </h4>
+                        {categoryMemories.map(memory => (
+                          <div
+                            key={memory.id}
+                            className="flex flex-col py-3 hover:bg-zinc-900/20 -mx-3 px-3 rounded-md transition-colors"
+                          >
+                            {editingMemoryId === memory.id ? (
+                              <div className="space-y-2">
+                                <Textarea
+                                  value={editingMemoryContent}
+                                  onChange={(e) => setEditingMemoryContent(e.target.value)}
+                                  className="w-full min-h-[60px] text-sm"
+                                />
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => handleMemoryEdit(memory.id)}
+                                    className="text-xs"
+                                  >
+                                    Save
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setEditingMemoryId(null)}
+                                    className="text-xs"
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-sm text-zinc-300 leading-relaxed mb-3">{memory.content}</p>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-[10px] text-zinc-600">
+                                    {new Date(memory.created_at).toLocaleDateString()}
+                                  </span>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setEditingMemoryId(memory.id);
+                                        setEditingMemoryContent(memory.content);
+                                      }}
+                                      className="h-7 px-2 text-xs text-zinc-500 hover:text-zinc-300"
+                                    >
+                                      <Edit3 className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleMemoryDelete(memory.id)}
+                                      className="h-7 px-2 text-xs text-zinc-500 hover:text-red-400"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </TabsContent>
+
           {/* Tab: Billing */}
           <TabsContent value="billing" className="space-y-8">
             <section className="space-y-3">
@@ -451,11 +697,8 @@ export function SettingsPage() {
                 </div>
               </div>
             </section>
-          </TabsContent>
 
-          {/* Tab: Usage */}
-          <TabsContent value="usage" className="space-y-8 animate-fade-in">
-            <section className="space-y-3">
+            <section className="space-y-3 pt-6 border-t border-zinc-800/50">
               <h3 className="text-xs font-medium mb-6 text-zinc-500 uppercase tracking-wider">
                 Current Usage
               </h3>
