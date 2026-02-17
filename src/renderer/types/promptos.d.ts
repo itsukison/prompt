@@ -1,10 +1,28 @@
+export interface GenerateOptions {
+  includeScreenshot?: boolean;
+}
+
+export interface ContextCheckResult {
+  needsContext: boolean;
+  source: 'heuristics' | 'llm';
+}
+
 export interface PromptOSAPI {
-  generate: (prompt: string) => Promise<{ success: boolean; text?: string; error?: string }>;
+  generate: (prompt: string, options?: GenerateOptions) => Promise<{ success: boolean; text?: string; error?: string }>;
   insert: (text: string) => Promise<{ success: boolean; error?: string }>;
   dismiss: () => void;
   setHeight: (height: number) => void;
   onWindowShown: (callback: (payload?: { selection?: string }) => void) => () => void;
   onWindowHidden: (callback: () => void) => () => void;
+  onContextUpdated: (callback: (payload?: { selection?: string }) => void) => () => void;
+
+  // Context awareness
+  checkContextNeed: (prompt: string) => Promise<ContextCheckResult>;
+
+  // Screenshot
+  screenshot: {
+    capture: () => Promise<string | null>;
+  };
   auth: {
     signUp: (credentials: { email: string; password: string }) => Promise<any>;
     signIn: (credentials: { email: string; password: string }) => Promise<any>;

@@ -62,6 +62,21 @@ export function OverlayWindow() {
     }
   }, [promptOS]);
 
+  // Listen for context updates (Refine Selection Enhancement)
+  useEffect(() => {
+    // @ts-ignore
+    if (window.promptOS && window.promptOS.onContextUpdated) {
+      // @ts-ignore
+      return window.promptOS.onContextUpdated((payload) => {
+        if (payload?.selection) {
+          setSelectionContext(payload.selection);
+          inputRef.current?.focus();
+          // We intentionally do NOT reset prompt/result here to allow refining
+        }
+      });
+    }
+  }, [promptOS]);
+
   // Generate with stable reference
   const handleGenerate = useCallback(async () => {
     // Access latest prompt value directly
@@ -77,16 +92,32 @@ export function OverlayWindow() {
       setError('');
       setRetryStatus('');
 
-      setRetryStatus('');
-
+      // Build prompt with text selection context
       let finalPrompt = currentPrompt;
       if (selectionContext) {
         finalPrompt = `Context:\n"""\n${selectionContext}\n"""\n\nUser Request:\n${currentPrompt}`;
       }
 
-      const response = await promptOS.generate(finalPrompt);
+      // Check if visual context is needed
+      let includeScreenshot = false;
+      try {
+        const contextCheck = await promptOS.checkContextNeed(currentPrompt);
+        includeScreenshot = contextCheck.needsContext;
+        if (includeScreenshot) {
+          console.log('[Overlay] Including screenshot (source:', contextCheck.source, ')');
+          setRetryStatus('Capturing context...');
+        }
+      } catch {
+        // Context check failed, continue without screenshot
+        console.warn('[Overlay] Context check failed, continuing without screenshot');
+      }
+
+      // Generate with optional screenshot
+      const response = await promptOS.generate(finalPrompt, { includeScreenshot });
       if (response.success && response.text) {
         setResult(response.text);
+      } else if (response.error === 'screen_recording_permission') {
+        setError('screen_recording_permission');
       } else {
         setError(response.error || 'Failed to generate text');
       }
@@ -178,9 +209,26 @@ export function OverlayWindow() {
 
       {/* Error Section - conditional render based on derived state */}
       {hasError && (
-        <div className="mb-3 p-3 px-4 bg-red-50 rounded-2xl border border-red-300 shadow-[0_4px_12px_rgba(220,38,38,0.1)] text-red-700 text-sm animate-slide-up w-full">
-          <span>{error}</span>
-        </div>
+        error === 'screen_recording_permission' ? (
+          <div className="mb-3 p-4 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-amber-500/30 backdrop-blur-xl rounded-[20px] shadow-lg animate-slide-up w-full">
+            <div className="flex items-start gap-3">
+              <span className="text-amber-400 text-lg flex-shrink-0">⚠</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium text-amber-300 mb-1">Screen Recording permission required</p>
+                <p className="text-[12px] text-gray-400 leading-relaxed mb-2">
+                  To read your screen for context, promptOS needs Screen Recording access.
+                </p>
+                <p className="text-[11px] text-gray-500 font-mono leading-relaxed">
+                  System Settings → Privacy &amp; Security → Screen Recording → enable Electron
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-3 p-3 px-4 bg-red-50 rounded-2xl border border-red-300 shadow-[0_4px_12px_rgba(220,38,38,0.1)] text-red-700 text-sm animate-slide-up w-full">
+            <span>{error}</span>
+          </div>
+        )
       )}
 
       {/* Retry Status Indicator */}
@@ -192,7 +240,7 @@ export function OverlayWindow() {
 
       {/* Selection Context Chip */}
       {selectionContext && !hasResult && (
-        <div className="mb-3 max-w-[90%] flex items-center gap-2 p-2 px-3 bg-white/10 rounded-xl border border-white/10 backdrop-blur-md animate-slide-up">
+        <div className="mb-3 max-w-[90%] flex items-center gap-2 p-2 px-3 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-xl animate-slide-up">
           <div className="text-xs text-gray-300 italic truncate max-w-[300px]">
             "{selectionContext}"
           </div>

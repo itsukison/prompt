@@ -5,8 +5,16 @@ contextBridge.exposeInMainWorld('promptOS', {
     // Overlay Functions (existing)
     // =========================================================================
 
-    // Generate text using Gemini
-    generate: (prompt) => ipcRenderer.invoke('generate-text', prompt),
+    // Generate text using Gemini (with optional screenshot)
+    generate: (prompt, options) => ipcRenderer.invoke('generate-text', prompt, options),
+
+    // Check if visual context is needed for a prompt
+    checkContextNeed: (prompt) => ipcRenderer.invoke('check-context-need', prompt),
+
+    // Screenshot capture
+    screenshot: {
+        capture: () => ipcRenderer.invoke('screenshot:capture'),
+    },
 
     // Insert text into the previously focused app
     insert: (text) => ipcRenderer.invoke('insert-text', text),
@@ -26,6 +34,11 @@ contextBridge.exposeInMainWorld('promptOS', {
     onWindowHidden: (callback) => {
         ipcRenderer.on('window-hidden', callback);
         return () => ipcRenderer.removeListener('window-hidden', callback);
+    },
+
+    onContextUpdated: (callback) => {
+        ipcRenderer.on('context-updated', (_, payload) => callback(payload));
+        return () => ipcRenderer.removeListener('context-updated', callback);
     },
 
     // Listen for generation status updates (retries, etc.)
