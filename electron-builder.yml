@@ -10,7 +10,7 @@ publish:
   provider: github
   owner: itsukison
   repo: prompt
-  releaseType: draft
+  releaseType: release
 
 mac:
   category: public.app-category.productivity
