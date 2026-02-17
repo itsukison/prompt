@@ -4,7 +4,11 @@ const { exec, execSync } = require('child_process');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { createSupabaseClient, getSupabaseClient } = require('./supabase');
 const { saveMemoryWithEmbedding, embedText, findSimilarMemories } = require('./embedding');
-require('dotenv').config();
+require('dotenv').config({
+    path: app.isPackaged
+        ? path.join(process.resourcesPath, '.env')
+        : path.join(__dirname, '../.env')
+});
 
 // =============================================================================
 // Configuration

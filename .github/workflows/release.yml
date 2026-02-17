@@ -21,6 +21,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Write .env
+        run: |
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+          echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
+
       - name: Build and publish
         run: npm run release
         env:
@@ -45,6 +51,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Write .env
+        run: |
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> .env
+          echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" >> .env
 
       - name: Build and publish
         run: npm run release

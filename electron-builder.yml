@@ -40,5 +40,10 @@ files:
   - src/main.js
   - src/preload.js
   - src/embedding.js
+  - src/supabase.js
   - dist/renderer/**/*
   - package.json
+
+extraResources:
+  - from: '.env'
+    to: '.env'
