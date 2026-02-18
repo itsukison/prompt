@@ -98,18 +98,20 @@ export function OverlayWindow() {
         finalPrompt = `Context:\n"""\n${selectionContext}\n"""\n\nUser Request:\n${currentPrompt}`;
       }
 
-      // Check if visual context is needed
+      // Check if visual context is needed — skip if text is already selected
       let includeScreenshot = false;
-      try {
-        const contextCheck = await promptOS.checkContextNeed(currentPrompt);
-        includeScreenshot = contextCheck.needsContext;
-        if (includeScreenshot) {
-          console.log('[Overlay] Including screenshot (source:', contextCheck.source, ')');
-          setRetryStatus('Capturing context...');
+      if (!selectionContext) {
+        try {
+          const contextCheck = await promptOS.checkContextNeed(currentPrompt);
+          includeScreenshot = contextCheck.needsContext;
+          if (includeScreenshot) {
+            console.log('[Overlay] Including screenshot (source:', contextCheck.source, ')');
+            setRetryStatus('Capturing context...');
+          }
+        } catch {
+          // Context check failed, continue without screenshot
+          console.warn('[Overlay] Context check failed, continuing without screenshot');
         }
-      } catch {
-        // Context check failed, continue without screenshot
-        console.warn('[Overlay] Context check failed, continuing without screenshot');
       }
 
       // Generate with optional screenshot
@@ -210,31 +212,42 @@ export function OverlayWindow() {
       {/* Error Section - conditional render based on derived state */}
       {hasError && (
         error === 'screen_recording_permission' ? (
-          <div className="mb-3 p-4 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-amber-500/30 backdrop-blur-xl rounded-[20px] shadow-lg animate-slide-up w-full">
+          <div className="mb-3 p-4 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-[20px] shadow-lg animate-slide-up w-[92%]">
             <div className="flex items-start gap-3">
-              <span className="text-amber-400 text-lg flex-shrink-0">⚠</span>
+              <span className="text-amber-400 text-base flex-shrink-0 mt-0.5">⚠</span>
               <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-amber-300 mb-1">Screen Recording permission required</p>
-                <p className="text-[12px] text-gray-400 leading-relaxed mb-2">
-                  To read your screen for context, promptOS needs Screen Recording access.
+                <p className="text-[13px] font-medium text-zinc-200 mb-1">Screen Recording required</p>
+                <p className="text-[12px] text-zinc-500 leading-relaxed mb-3">
+                  Enable promptOS in System Settings → Privacy &amp; Security → Screen Recording
                 </p>
-                <p className="text-[11px] text-gray-500 font-mono leading-relaxed">
-                  System Settings → Privacy &amp; Security → Screen Recording → enable Electron
-                </p>
+                <button
+                  onClick={() => promptOS.openSystemSettings('screen-recording')}
+                  className="text-[12px] text-[#FF6B00] hover:text-[#ff8533] transition-colors"
+                >
+                  Open System Settings →
+                </button>
               </div>
+              <button
+                onClick={() => setError('')}
+                className="text-zinc-600 hover:text-zinc-400 transition-colors flex-shrink-0"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18" /><path d="M6 6l12 12" />
+                </svg>
+              </button>
             </div>
           </div>
         ) : (
-          <div className="mb-3 p-3 px-4 bg-red-50 rounded-2xl border border-red-300 shadow-[0_4px_12px_rgba(220,38,38,0.1)] text-red-700 text-sm animate-slide-up w-full">
-            <span>{error}</span>
+          <div className="mb-3 p-3 px-4 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-xl animate-slide-up w-[92%]">
+            <span className="text-[12px] text-zinc-400">{error}</span>
           </div>
         )
       )}
 
       {/* Retry Status Indicator */}
       {retryStatus && !hasResult && !hasError && (
-        <div className="mb-3 p-2 px-4 bg-blue-500/10 rounded-2xl border border-blue-500/20 text-blue-200 text-xs animate-pulse w-fit mx-auto backdrop-blur-md">
-          <span>{retryStatus}</span>
+        <div className="mb-3 flex items-center gap-2 p-2 px-3 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-xl animate-slide-up w-fit mx-auto">
+          <span className="text-xs text-gray-300 italic">{retryStatus}</span>
         </div>
       )}
 

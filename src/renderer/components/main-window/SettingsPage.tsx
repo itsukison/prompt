@@ -11,13 +11,21 @@ import {
   Check,
   Brain,
   Trash2,
-  Edit3
+  Edit3,
+  Plus
 } from 'lucide-react';
 import { ShortcutsDisplay } from './ShortcutsDisplay';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown } from 'lucide-react';
 
 interface ProfileData {
   id: string;
@@ -64,6 +72,11 @@ export function SettingsPage() {
   const [memoryEnabled, setMemoryEnabled] = useState(true);
   const [editingMemoryId, setEditingMemoryId] = useState<string | null>(null);
   const [editingMemoryContent, setEditingMemoryContent] = useState('');
+  const [isAddingMemory, setIsAddingMemory] = useState(false);
+  const [newMemoryContent, setNewMemoryContent] = useState('');
+  const [newMemoryCategory, setNewMemoryCategory] = useState('personal_info');
+  const [isAddingLoading, setIsAddingLoading] = useState(false);
+  const [addMemoryError, setAddMemoryError] = useState('');
 
   // Sidebar collapse (lazy init from localStorage)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
@@ -274,6 +287,32 @@ export function SettingsPage() {
       alert('Failed to delete memory');
     }
   }, [promptOS]);
+
+  const handleMemoryAdd = useCallback(async () => {
+    if (!newMemoryContent.trim()) return;
+    setIsAddingLoading(true);
+    setAddMemoryError('');
+
+    try {
+      const result = await promptOS.memory.add(newMemoryContent.trim(), newMemoryCategory);
+      if (result.success && result.memory) {
+        setMemories(prev => [result.memory, ...prev]);
+        setNewMemoryContent('');
+        setIsAddingMemory(false);
+        // Refresh stats
+        const statsResult = await promptOS.memory.getStats();
+        if (statsResult.success) {
+          setMemoryStats(statsResult.stats);
+        }
+      } else {
+        setAddMemoryError(result.error || 'Failed to add memory');
+      }
+    } catch (err) {
+      setAddMemoryError('Failed to add memory');
+    } finally {
+      setIsAddingLoading(false);
+    }
+  }, [newMemoryContent, newMemoryCategory, promptOS]);
 
   if (isLoading) {
     return (
@@ -566,9 +605,88 @@ export function SettingsPage() {
 
             {/* Saved Memories */}
             <section className="space-y-3">
-              <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-4">Saved Memories</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Saved Memories</h3>
+                {!isAddingMemory && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsAddingMemory(true)}
+                    className="text-xs text-zinc-400 border-zinc-700 hover:text-zinc-200 h-7"
+                  >
+                    <Plus className="w-3 h-3 mr-1" /> Add Memory
+                  </Button>
+                )}
+              </div>
 
-              {memories.length === 0 ? (
+              {/* Add Memory Form */}
+              {isAddingMemory && (
+                <div className="p-4 bg-zinc-900/30 rounded-lg border border-zinc-800 space-y-3 mb-4">
+                  <Textarea
+                    value={newMemoryContent}
+                    onChange={(e) => setNewMemoryContent(e.target.value)}
+                    placeholder="Enter something you'd like the AI to remember about you..."
+                    className="w-full min-h-[80px] text-sm bg-zinc-800/50 border-zinc-700"
+                  />
+                  <div className="flex items-center gap-3">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-xs border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-200 h-8 px-3 justify-between min-w-[140px]"
+                        >
+                          <span className="truncate">
+                            {newMemoryCategory.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                          </span>
+                          <ChevronDown className="w-3.5 h-3.5 opacity-50 ml-2" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-[180px]">
+                        <DropdownMenuItem onClick={() => setNewMemoryCategory('personal_info')}>
+                          Personal Info
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setNewMemoryCategory('communication_style')}>
+                          Communication Style
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setNewMemoryCategory('preferences')}>
+                          Preferences
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setNewMemoryCategory('work_context')}>
+                          Work Context
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <div className="flex-1" />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setIsAddingMemory(false);
+                        setNewMemoryContent('');
+                        setAddMemoryError('');
+                      }}
+                      className="text-xs"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleMemoryAdd}
+                      disabled={!newMemoryContent.trim() || isAddingLoading}
+                      className="text-xs"
+                    >
+                      {isAddingLoading ? 'Saving...' : 'Save'}
+                    </Button>
+                  </div>
+                  {addMemoryError && (
+                    <p className="text-xs text-red-400">{addMemoryError}</p>
+                  )}
+                </div>
+              )}
+
+              {memories.length === 0 && !isAddingMemory ? (
                 <div className="text-center py-12 px-4 bg-zinc-900/10 rounded-lg border border-zinc-800/50">
                   <Brain className="w-12 h-12 text-zinc-600 mx-auto mb-3" />
                   <p className="text-sm text-zinc-400 mb-1">No memories saved yet</p>

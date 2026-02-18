@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, clipboard, screen, desktopCapturer } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, clipboard, screen, desktopCapturer, shell } = require('electron');
 const path = require('path');
 const { exec, execSync } = require('child_process');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -737,6 +737,22 @@ Answer with only: YES or NO`;
  * Capture screenshot of the previous app's window
  * @returns {Promise<string|null>} Base64 data URL or null
  */
+/**
+ * Find the target source from a list of desktop sources.
+ * Prefers the previous app, falls back to first non-promptOS window.
+ */
+function findTargetSource(sources) {
+    if (previousApp) {
+        const match = sources.find(source =>
+            source.name.toLowerCase().includes(previousApp.toLowerCase())
+        );
+        if (match) return match;
+    }
+    return sources.find(source =>
+        !source.name.toLowerCase().includes('promptos')
+    ) || null;
+}
+
 async function captureScreenshot() {
     try {
         const sources = await desktopCapturer.getSources({
@@ -744,22 +760,7 @@ async function captureScreenshot() {
             thumbnailSize: { width: 1920, height: 1080 }
         });
 
-        // Find the previous app's window
-        let targetSource = null;
-
-        if (previousApp) {
-            // Try to match by app name
-            targetSource = sources.find(source =>
-                source.name.toLowerCase().includes(previousApp.toLowerCase())
-            );
-        }
-
-        // Fallback to first non-promptOS window
-        if (!targetSource) {
-            targetSource = sources.find(source =>
-                !source.name.toLowerCase().includes('promptos')
-            );
-        }
+        let targetSource = findTargetSource(sources);
 
         if (!targetSource) {
             console.warn('[Screenshot] No suitable window found');
@@ -768,10 +769,23 @@ async function captureScreenshot() {
 
         console.log('[Screenshot] Captured window:', targetSource.name);
 
-        // Check if thumbnail has actual pixel data
+        // macOS quirk: first call after app launch returns empty thumbnails even with permission granted.
+        // Retry once with a short delay before treating it as a real permission error.
         if (targetSource.thumbnail.isEmpty()) {
-            console.warn('[Screenshot] Thumbnail is empty - Screen Recording permission likely not granted');
-            return { error: 'screen_recording_permission' };
+            console.warn('[Screenshot] Thumbnail empty on first attempt — retrying (macOS warmup quirk)...');
+            await new Promise(resolve => setTimeout(resolve, 600));
+
+            const retrySources = await desktopCapturer.getSources({
+                types: ['window'],
+                thumbnailSize: { width: 1920, height: 1080 }
+            });
+            targetSource = findTargetSource(retrySources);
+
+            if (!targetSource || targetSource.thumbnail.isEmpty()) {
+                console.warn('[Screenshot] Thumbnail still empty after retry — Screen Recording permission not granted');
+                return { error: 'screen_recording_permission' };
+            }
+            console.log('[Screenshot] Retry succeeded:', targetSource.name);
         }
 
         const dataUrl = targetSource.thumbnail.toDataURL();
@@ -779,7 +793,7 @@ async function captureScreenshot() {
         // Secondary check: empty base64 data despite non-empty NativeImage
         const commaIdx = dataUrl.indexOf(',');
         if (commaIdx === -1 || dataUrl.substring(commaIdx + 1).length === 0) {
-            console.warn('[Screenshot] Thumbnail data URL is empty - Screen Recording permission likely not granted');
+            console.warn('[Screenshot] Thumbnail data URL is empty — Screen Recording permission not granted');
             return { error: 'screen_recording_permission' };
         }
 
@@ -1521,8 +1535,26 @@ Style guide:`;
                 return { success: false, error: 'Not authenticated' };
             }
 
+            // Get existing memory to know its category
+            const { data: existing, error: fetchError } = await supabase
+                .from('user_memories')
+                .select('category')
+                .eq('id', memoryId)
+                .eq('user_id', user.id)
+                .single();
+
+            if (fetchError || !existing) {
+                return { success: false, error: 'Memory not found' };
+            }
+
+            // Check for duplicates (excluding self)
+            const { embedText, isDuplicateMemory } = require('./embedding');
+            const isDup = await isDuplicateMemory(supabase, user.id, content, existing.category, 0.85, memoryId);
+            if (isDup) {
+                return { success: false, error: 'A similar memory already exists' };
+            }
+
             // Regenerate embedding for updated content
-            const { embedText } = require('./embedding');
             const embedding = await embedText(content);
 
             const { data, error } = await supabase
@@ -1542,6 +1574,33 @@ Style guide:`;
             }
 
             return { success: true, memory: data };
+        } catch (err) {
+            return { success: false, error: err.message };
+        }
+    });
+
+    ipcMain.handle('memory:add', async (event, content, category) => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                return { success: false, error: 'Not authenticated' };
+            }
+
+            // Use saveMemoryWithEmbedding which includes duplicate check
+            const { saveMemoryWithEmbedding } = require('./embedding');
+            const memory = await saveMemoryWithEmbedding(
+                supabase,
+                user.id,
+                content,
+                category,
+                { source: 'manual' }
+            );
+
+            if (!memory) {
+                return { success: false, error: 'A similar memory already exists' };
+            }
+
+            return { success: true, memory };
         } catch (err) {
             return { success: false, error: err.message };
         }
@@ -1655,6 +1714,13 @@ Style guide:`;
             mainWindow.webContents.send('navigate', route);
         }
     });
+
+    // Open macOS System Settings to a specific pane
+    ipcMain.handle('open-system-settings', async (event, pane) => {
+        if (pane === 'screen-recording' && process.platform === 'darwin') {
+            await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture');
+        }
+    });
 }
 
 // =============================================================================
@@ -1718,6 +1784,20 @@ app.whenReady().then(async () => {
     }
 
     setupIPC();
+
+    // Warm up the macOS screen recording API to avoid false permission errors on first use.
+    // macOS returns empty thumbnails on the very first desktopCapturer call after app launch,
+    // even when permission has already been granted.
+    if (process.platform === 'darwin') {
+        setTimeout(async () => {
+            try {
+                await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 1, height: 1 } });
+                console.log('[Screenshot] Screen recording API warmed up');
+            } catch (e) {
+                // Silently ignore — warmup is best-effort
+            }
+        }, 2000);
+    }
 });
 
 // Analyze memory session before app quits

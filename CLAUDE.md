@@ -73,7 +73,7 @@ promptOS is an Electron-based global AI writing assistant that uses Google's Gem
 ## Configuration
 
 - **API Key**: Set `GEMINI_API_KEY` in `.env` file
-- **Model**: Uses `gemini-2.0-flash` (configured in `src/main.js`)
+- **Model**: Uses `gemini-3.0-flash-preview` (configured in `src/main.js`)
 
 ## Platform Notes
 

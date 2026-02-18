@@ -128,13 +128,14 @@ async function findSimilarMemories(supabase, userId, embedding, threshold = 0.7,
  * @param {string} content - Memory content to check
  * @param {string} category - Memory category
  * @param {number} threshold - Similarity threshold for duplicates (default 0.85)
+ * @param {string|null} excludeId - Memory ID to exclude from check (for updates)
  * @returns {Promise<boolean>} - True if duplicate found
  */
-async function isDuplicateMemory(supabase, userId, content, category, threshold = 0.85) {
+async function isDuplicateMemory(supabase, userId, content, category, threshold = 0.85, excludeId = null) {
     try {
         // Generate embedding for new content
         const embedding = await embedText(content);
-        
+
         // Get all memories in same category
         const { data: existingMemories, error } = await supabase
             .from('user_memories')
@@ -142,22 +143,23 @@ async function isDuplicateMemory(supabase, userId, content, category, threshold 
             .eq('user_id', userId)
             .eq('category', category)
             .eq('is_active', true);
-        
+
         if (error) {
             console.error('[Embedding] Failed to fetch existing memories:', error.message);
             return false; // If we can't check, allow save
         }
-        
+
         if (!existingMemories || existingMemories.length === 0) {
             return false; // No existing memories, not a duplicate
         }
-        
+
         // Check similarity with each existing memory
         for (const memory of existingMemories) {
+            if (excludeId && memory.id === excludeId) continue; // Skip self when editing
             if (!memory.embedding) continue;
-            
+
             const similarity = cosineSimilarity(embedding, memory.embedding);
-            
+
             if (similarity >= threshold) {
                 console.log(`[Embedding] Duplicate detected (similarity: ${similarity.toFixed(3)})`);
                 console.log(`  New: ${content.substring(0, 50)}...`);
@@ -165,7 +167,7 @@ async function isDuplicateMemory(supabase, userId, content, category, threshold 
                 return true;
             }
         }
-        
+
         return false; // No duplicates found
     } catch (error) {
         console.error('[Embedding] Duplicate check failed:', error.message);

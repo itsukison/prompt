@@ -42,12 +42,14 @@ export interface PromptOSAPI {
   };
   memory: {
     getAll: () => Promise<any>;
+    add: (content: string, category: string) => Promise<any>;
     update: (memoryId: string, content: string) => Promise<any>;
     delete: (memoryId: string) => Promise<any>;
     toggle: (enabled: boolean) => Promise<any>;
     getStats: () => Promise<any>;
   };
   onNavigate: (callback: (route: string) => void) => () => void;
+  openSystemSettings: (pane: 'screen-recording') => Promise<void>;
 }
 
 declare global {

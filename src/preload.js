@@ -90,6 +90,7 @@ contextBridge.exposeInMainWorld('promptOS', {
 
     memory: {
         getAll: () => ipcRenderer.invoke('memory:get-all'),
+        add: (content, category) => ipcRenderer.invoke('memory:add', content, category),
         update: (memoryId, content) => ipcRenderer.invoke('memory:update', memoryId, content),
         delete: (memoryId) => ipcRenderer.invoke('memory:delete', memoryId),
         toggle: (enabled) => ipcRenderer.invoke('memory:toggle', enabled),
@@ -104,4 +105,6 @@ contextBridge.exposeInMainWorld('promptOS', {
         ipcRenderer.on('navigate', (_, route) => callback(route));
         return () => ipcRenderer.removeListener('navigate', callback);
     },
+
+    openSystemSettings: (pane) => ipcRenderer.invoke('open-system-settings', pane),
 });
