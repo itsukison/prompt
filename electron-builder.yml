@@ -37,10 +37,7 @@ linux:
     - deb
 
 files:
-  - src/main.js
-  - src/preload.js
-  - src/embedding.js
-  - src/supabase.js
+  - src/**/*
   - dist/renderer/**/*
   - public/**/*
   - package.json
