@@ -148,4 +148,47 @@ async function getSelectedText(clipboard) {
     return selectedText || '';
 }
 
-module.exports = { getFrontmostApp, activateApp, simulatePaste, getSelectedText };
+// Maps lowercase substrings to the canonical app name used in AppleScript
+const BROWSER_SCRIPT_MAP = {
+    'google chrome': 'Google Chrome',
+    'chrome': 'Google Chrome',
+    'arc': 'Arc',
+    'brave': 'Brave Browser',
+    'microsoft edge': 'Microsoft Edge',
+    'safari': 'Safari',
+};
+
+/**
+ * Get the active tab URL and title from a browser app (macOS only).
+ * Firefox is excluded — it has no AppleScript tab URL access.
+ * @param {string|null} appName
+ * @returns {{ url: string, title: string } | null}
+ */
+function getBrowserContext(appName) {
+    if (!IS_MAC || !appName) return null;
+
+    const lower = appName.toLowerCase();
+    const canonicalEntry = Object.entries(BROWSER_SCRIPT_MAP).find(([key]) => lower.includes(key));
+    if (!canonicalEntry) return null;
+
+    const canonical = canonicalEntry[1];
+    const isSafari = canonical === 'Safari';
+
+    try {
+        let url, title;
+        if (isSafari) {
+            url   = execSync(`osascript -e 'tell application "Safari" to return URL of current tab of front window'`,   { encoding: 'utf-8', timeout: 1500 }).trim();
+            title = execSync(`osascript -e 'tell application "Safari" to return name of current tab of front window'`, { encoding: 'utf-8', timeout: 1500 }).trim();
+        } else {
+            url   = execSync(`osascript -e 'tell application "${canonical}" to return URL of active tab of front window'`,   { encoding: 'utf-8', timeout: 1500 }).trim();
+            title = execSync(`osascript -e 'tell application "${canonical}" to return name of active tab of front window'`, { encoding: 'utf-8', timeout: 1500 }).trim();
+        }
+        console.log(`[Browser] Context: ${url} — "${title}"`);
+        return { url, title };
+    } catch (error) {
+        console.warn(`[Browser] Could not get context from "${appName}":`, error.message);
+        return null;
+    }
+}
+
+module.exports = { getFrontmostApp, activateApp, simulatePaste, getSelectedText, getBrowserContext };

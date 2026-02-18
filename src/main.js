@@ -10,7 +10,7 @@ const { createSupabaseClient } = require('./supabase');
 const { initGemini } = require('./services/gemini-service');
 const { loadUserProfile } = require('./services/auth-service');
 const { analyzeSessionForFacts } = require('./services/memory-service');
-const { getFrontmostApp, getSelectedText } = require('./services/focus-service');
+const { getFrontmostApp, getSelectedText, getBrowserContext } = require('./services/focus-service');
 const { createMainWindow, createOverlayWindow, showOverlay, hideOverlay, updateOverlayContext, ICON_PATH } = require('./core/window-manager');
 const { registerShortcuts, unregisterShortcuts } = require('./core/shortcuts-manager');
 const { setupIPC } = require('./ipc/index');
@@ -26,6 +26,7 @@ let genAI = null;
 let supabase = null;
 let chatSessionRef = { current: null }; // Mutable ref passed to gemini-service
 let previousApp = null;
+let previousBrowserContext = null;
 let currentUserProfile = null;
 let isAuthenticated = false;
 let currentMemorySession = null;
@@ -44,6 +45,7 @@ const appState = {
     get chatSessionRef() { return chatSessionRef; },
     get previousApp() { return previousApp; },
     set previousApp(v) { previousApp = v; },
+    get previousBrowserContext() { return previousBrowserContext; },
     get currentUserProfile() { return currentUserProfile; },
     set currentUserProfile(v) { currentUserProfile = v; },
     get isAuthenticated() { return isAuthenticated; },
@@ -91,6 +93,7 @@ async function transitionToAuthMode() {
 async function handleShowOverlay() {
     previousApp = getFrontmostApp();
     console.log(`[Focus] Captured previous app: "${previousApp}"`);
+    previousBrowserContext = getBrowserContext(previousApp);
     chatSessionRef.current = null;
 
     if (!currentMemorySession) {
@@ -104,6 +107,7 @@ async function handleShowOverlay() {
 
 async function handleUpdateContext() {
     previousApp = await updateOverlayContext(overlayWindow, getFrontmostApp, getSelectedText, clipboard) || previousApp;
+    previousBrowserContext = getBrowserContext(previousApp);
 }
 
 function toggleOverlay() {

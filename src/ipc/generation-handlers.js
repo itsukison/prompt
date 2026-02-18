@@ -41,7 +41,8 @@ function setupGenerationHandlers({ desktopCapturer, getAppState }) {
                 screenshotDataUrl,
                 state.chatSessionRef,
                 state.overlayWindow,
-                signal
+                signal,
+                state.previousBrowserContext
             );
 
             // Track token usage
