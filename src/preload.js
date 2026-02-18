@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld('promptOS', {
     // Generate text using Gemini (with optional screenshot)
     generate: (prompt, options) => ipcRenderer.invoke('generate-text', prompt, options),
 
+    // Cancel current generation
+    cancelGeneration: () => ipcRenderer.invoke('cancel-text-generation'),
+
     // Check if visual context is needed for a prompt
     checkContextNeed: (prompt) => ipcRenderer.invoke('check-context-need', prompt),
 
@@ -85,7 +88,20 @@ contextBridge.exposeInMainWorld('promptOS', {
     },
 
     // =========================================================================
-    // Memory Functions
+    // Facts Functions (simplified 10-fact memory system)
+    // =========================================================================
+
+    facts: {
+        getAll: () => ipcRenderer.invoke('facts:get-all'),
+        add: (content) => ipcRenderer.invoke('facts:add', content),
+        update: (factId, content) => ipcRenderer.invoke('facts:update', factId, content),
+        delete: (factId) => ipcRenderer.invoke('facts:delete', factId),
+        toggle: (enabled) => ipcRenderer.invoke('facts:toggle', enabled),
+        getStats: () => ipcRenderer.invoke('facts:get-stats'),
+    },
+
+    // =========================================================================
+    // Memory Functions (deprecated - use facts instead, kept for compatibility)
     // =========================================================================
 
     memory: {

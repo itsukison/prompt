@@ -4,12 +4,20 @@ import { useWindowEvents } from '../../hooks/useWindowEvents';
 import { Button } from '@/components/ui/button';
 
 
-// Hoist static SVG outside component to avoid recreation
-const sendIcon = (
-  <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M22 2L11 13" />
-    <path d="M22 2L15 22L11 13L2 9L22 2Z" />
-  </svg>
+// Hoist static SVGs outside component to avoid recreation
+const ArrowUpIcon = (
+  <div className="w-7 h-7 rounded-full bg-[#EA580C]/90 flex items-center justify-center shadow-md hover:bg-[#c2410c] transition-colors">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 19V5" />
+      <path d="M5 12l7-7 7 7" />
+    </svg>
+  </div>
+);
+
+const StopIcon = (
+  <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center border border-white/10 hover:bg-zinc-700 transition-colors">
+    <div className="w-2 h-2 bg-white rounded-[1px]" />
+  </div>
 );
 
 export function OverlayWindow() {
@@ -116,10 +124,14 @@ export function OverlayWindow() {
 
       // Generate with optional screenshot
       const response = await promptOS.generate(finalPrompt, { includeScreenshot });
+
       if (response.success && response.text) {
         setResult(response.text);
       } else if (response.error === 'screen_recording_permission') {
         setError('screen_recording_permission');
+      } else if (response.error === 'Cancelled') {
+        // User cancelled, do nothing or show toast (optional)
+        console.log('Generation cancelled by user');
       } else {
         setError(response.error || 'Failed to generate text');
       }
@@ -132,6 +144,13 @@ export function OverlayWindow() {
       setRetryStatus('');
     }
   }, [promptOS, selectionContext]);
+
+  const handleStop = useCallback(async () => {
+    if (!isGeneratingRef.current) return;
+    // We don't manually set isGenerating(false) here, we let the handleGenerate finally block do it
+    // when the promise rejects/resolves
+    await promptOS.cancelGeneration();
+  }, [promptOS]);
 
   // Stable insert using functional setState
   const handleInsert = useCallback(async () => {
@@ -180,11 +199,12 @@ export function OverlayWindow() {
     return () => document.removeEventListener('keydown', handleGlobalEscape);
   }, [promptOS, handleReset]); // Narrow dependencies
 
+
   return (
     <div className="bg-transparent h-screen flex flex-col justify-end items-center p-3 pb-6 font-[-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,Oxygen,Ubuntu,sans-serif]">
       {/* Result Section - conditional render based on derived state */}
       {hasResult && (
-        <div className="mb-3 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-[20px] p-5 shadow-lg animate-slide-up origin-bottom w-full max-h-[calc(100vh-100px)] overflow-y-auto">
+        <div className="mb-3 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-[20px] p-5 shadow-lg animate-slide-up origin-bottom w-full max-h-[calc(100vh-100px)] overflow-y-auto grainy-texture">
           <div className="result-text text-[15px] leading-relaxed text-gray-200 max-h-[350px] overflow-y-auto whitespace-pre-wrap pr-1">
             {result}
           </div>
@@ -212,7 +232,7 @@ export function OverlayWindow() {
       {/* Error Section - conditional render based on derived state */}
       {hasError && (
         error === 'screen_recording_permission' ? (
-          <div className="mb-3 p-4 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-[20px] shadow-lg animate-slide-up w-[92%]">
+          <div className="mb-3 p-4 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-[20px] shadow-lg animate-slide-up w-[92%] grainy-texture">
             <div className="flex items-start gap-3">
               <span className="text-amber-400 text-base flex-shrink-0 mt-0.5">⚠</span>
               <div className="flex-1 min-w-0">
@@ -238,7 +258,7 @@ export function OverlayWindow() {
             </div>
           </div>
         ) : (
-          <div className="mb-3 p-3 px-4 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-xl animate-slide-up w-[92%]">
+          <div className="mb-3 p-3 px-4 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-xl animate-slide-up w-[92%] grainy-texture">
             <span className="text-[12px] text-zinc-400">{error}</span>
           </div>
         )
@@ -246,14 +266,14 @@ export function OverlayWindow() {
 
       {/* Retry Status Indicator */}
       {retryStatus && !hasResult && !hasError && (
-        <div className="mb-3 flex items-center gap-2 p-2 px-3 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-xl animate-slide-up w-fit mx-auto">
+        <div className="mb-3 flex items-center gap-2 p-2 px-3 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-xl animate-slide-up w-fit mx-auto grainy-texture">
           <span className="text-xs text-gray-300 italic">{retryStatus}</span>
         </div>
       )}
 
       {/* Selection Context Chip */}
       {selectionContext && !hasResult && (
-        <div className="mb-3 max-w-[90%] flex items-center gap-2 p-2 px-3 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-xl animate-slide-up">
+        <div className="mb-3 max-w-[90%] flex items-center gap-2 p-2 px-3 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-xl animate-slide-up grainy-texture">
           <div className="text-xs text-gray-300 italic truncate max-w-[300px]">
             "{selectionContext}"
           </div>
@@ -267,7 +287,7 @@ export function OverlayWindow() {
       )}
 
       {/* Input Bar */}
-      <div className="input-bar flex items-center gap-3.5 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-[28px] py-2.5 px-5 shadow-lg w-[92%]">
+      <div className="input-bar flex items-center gap-3.5 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-[28px] py-2.5 px-5 shadow-lg w-[92%] grainy-texture">
         <img src="logo.png" className="w-6 h-6 object-contain flex-shrink-0 opacity-80" alt="Logo" />
         <input
           ref={inputRef}
@@ -283,11 +303,11 @@ export function OverlayWindow() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={handleGenerate}
-          disabled={isGenerating || !!retryStatus}
-          className="w-8 h-8 rounded-full text-gray-500 hover:bg-black/5 hover:text-gray-900 disabled:opacity-50"
+          onClick={isGenerating ? handleStop : handleGenerate}
+          disabled={!!retryStatus && !isGenerating}
+          className="w-7 h-7 rounded-full hover:bg-transparent p-0"
         >
-          {isGenerating ? <span className="spinner"></span> : sendIcon}
+          {isGenerating ? StopIcon : ArrowUpIcon}
         </Button>
       </div>
     </div>

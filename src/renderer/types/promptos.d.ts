@@ -7,8 +7,42 @@ export interface ContextCheckResult {
   source: 'heuristics' | 'llm';
 }
 
+// Facts system types (simplified 10-fact memory)
+export interface Fact {
+  id: string;
+  content: string;
+  position: number;
+  source: 'auto' | 'manual';
+  created_at: string;
+}
+
+export interface FactsStats {
+  count: number;
+  max: number;
+  remaining: number;
+}
+
+export interface FactsResponse {
+  success: boolean;
+  facts?: Fact[];
+  error?: string;
+}
+
+export interface FactResponse {
+  success: boolean;
+  fact?: Fact;
+  error?: string;
+}
+
+export interface FactsStatsResponse {
+  success: boolean;
+  stats?: FactsStats;
+  error?: string;
+}
+
 export interface PromptOSAPI {
   generate: (prompt: string, options?: GenerateOptions) => Promise<{ success: boolean; text?: string; error?: string }>;
+  cancelGeneration: () => Promise<void>;
   insert: (text: string) => Promise<{ success: boolean; error?: string }>;
   dismiss: () => void;
   setHeight: (height: number) => void;
@@ -40,6 +74,16 @@ export interface PromptOSAPI {
   usage: {
     getStats: () => Promise<any>;
   };
+  // Facts system (simplified 10-fact memory)
+  facts: {
+    getAll: () => Promise<FactsResponse>;
+    add: (content: string) => Promise<FactResponse>;
+    update: (factId: string, content: string) => Promise<FactResponse>;
+    delete: (factId: string) => Promise<{ success: boolean; error?: string }>;
+    toggle: (enabled: boolean) => Promise<{ success: boolean; profile?: any; error?: string }>;
+    getStats: () => Promise<FactsStatsResponse>;
+  };
+  // Memory (deprecated - use facts instead)
   memory: {
     getAll: () => Promise<any>;
     add: (content: string, category: string) => Promise<any>;

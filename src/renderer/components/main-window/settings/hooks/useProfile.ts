@@ -1,0 +1,91 @@
+import { useState, useEffect, useCallback } from 'react';
+import { usePromptOS } from '@/contexts/PromptOSContext';
+
+export interface ProfileData {
+  id: string;
+  display_name: string;
+  writing_style: string;
+  writing_style_guide?: string;
+  tokens_used: number;
+  tokens_remaining: number;
+  subscription_tier: string;
+  onboarding_completed: boolean;
+  memory_enabled?: boolean;
+}
+
+export function useProfile() {
+  const promptOS = usePromptOS();
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [userEmail, setUserEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState('');
+  const [selectedStyle, setSelectedStyle] = useState('professional');
+  const [customStyleInput, setCustomStyleInput] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const profileResult = await promptOS.profile.get();
+        if (!cancelled && profileResult.success) {
+          const p = profileResult.profile;
+          setProfile(p);
+          setEditedName(p.display_name || '');
+          setSelectedStyle(p.writing_style || 'professional');
+          setCustomStyleInput(p.writing_style_guide || '');
+        }
+        const sessionResult = await promptOS.auth.getSession();
+        if (!cancelled && sessionResult.success && sessionResult.session) {
+          setUserEmail(sessionResult.session.user.email || '');
+        }
+      } catch (err) {
+        console.error('Failed to load profile:', err);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [promptOS]);
+
+  const handleSaveName = useCallback(async () => {
+    const newName = editedName.trim();
+    if (!newName) return;
+    try {
+      const result = await promptOS.profile.update({ display_name: newName });
+      if (result.success) { setProfile(result.profile); setIsEditingName(false); }
+      else alert('Failed to save: ' + result.error);
+    } catch { alert('Failed to save name'); }
+  }, [editedName, promptOS]);
+
+  const handleStyleSelect = useCallback(async (styleId: string) => {
+    setSelectedStyle(styleId);
+    if (styleId !== 'custom') {
+      try {
+        const result = await promptOS.profile.update({ writing_style: styleId });
+        if (result.success) setProfile(result.profile);
+      } catch { console.error('Failed to update style'); }
+    }
+  }, [promptOS]);
+
+  const handleSaveCustomStyle = useCallback(async () => {
+    const text = customStyleInput.trim();
+    if (!text) return;
+    try {
+      const result = await promptOS.profile.update({ writing_style: 'custom', writing_style_guide: text });
+      if (result.success) { setProfile(result.profile); alert('Custom style saved!'); }
+    } catch { alert('Failed to save style'); }
+  }, [customStyleInput, promptOS]);
+
+  const handleLogout = useCallback(async () => {
+    try { await promptOS.auth.signOut(); }
+    catch { alert('Failed to log out'); }
+  }, [promptOS]);
+
+  return {
+    profile, setProfile, userEmail, isLoading,
+    isEditingName, setIsEditingName, editedName, setEditedName,
+    selectedStyle, customStyleInput, setCustomStyleInput,
+    handleSaveName, handleStyleSelect, handleSaveCustomStyle, handleLogout,
+  };
+}
