@@ -172,6 +172,30 @@ function formatFactsForPrompt(facts) {
 }
 
 /**
+ * Check if a new fact meaningfully duplicates or contradicts an existing one
+ * @param {object} genAI - Google Generative AI client
+ * @param {string} newFact - Candidate fact to check
+ * @param {Array} existingFacts - Array of existing fact objects
+ * @returns {Promise<boolean>} True if duplicate/contradiction found
+ */
+async function isDuplicateFact(genAI, newFact, existingFacts) {
+    if (!genAI || existingFacts.length === 0) return false;
+
+    const existingList = existingFacts.map(f => `- ${f.content}`).join('\n');
+    const prompt = `Existing facts:\n${existingList}\n\nNew fact: "${newFact}"\n\nDoes the new fact meaningfully duplicate or contradict any existing fact? Answer only YES or NO.`;
+
+    try {
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite-preview-02-05' });
+        const result = await model.generateContent(prompt);
+        const answer = result.response.text().trim().toUpperCase();
+        return answer.startsWith('YES');
+    } catch (error) {
+        console.error('[Facts] Duplicate check failed, allowing fact:', error.message);
+        return false;
+    }
+}
+
+/**
  * Summarize a fact if it's too long (using Gemini)
  * @param {object} genAI - Google Generative AI client
  * @param {string} content - Original fact content
@@ -217,5 +241,6 @@ module.exports = {
     updateFact,
     deleteFact,
     formatFactsForPrompt,
-    summarizeFact
+    summarizeFact,
+    isDuplicateFact
 };

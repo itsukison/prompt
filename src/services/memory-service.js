@@ -5,7 +5,7 @@
  * The RAG-based getRelevantMemories is removed - facts are now always injected.
  */
 
-const { getFactCount, addFact, summarizeFact, MAX_FACTS } = require('./facts-service');
+const { getFactCount, getAllFacts, addFact, summarizeFact, isDuplicateFact, MAX_FACTS } = require('./facts-service');
 
 /**
  * Analyze a session's interactions and extract facts about the user
@@ -25,9 +25,9 @@ async function analyzeSessionForFacts(genAI, supabase, userProfile, session) {
     }
 
     try {
-        // Check current fact count
-        const currentCount = await getFactCount(supabase, userProfile.id);
-        const remainingSlots = MAX_FACTS - currentCount;
+        // Fetch existing facts once — used for both slot counting and dedup checks
+        const existingFacts = await getAllFacts(supabase, userProfile.id);
+        const remainingSlots = MAX_FACTS - existingFacts.length;
 
         if (remainingSlots <= 0) {
             console.log(`[Facts] User already has ${MAX_FACTS} facts, skipping extraction`);
@@ -86,17 +86,26 @@ Return ONLY valid JSON, no other text.`;
         facts = facts.slice(0, remainingSlots);
         console.log(`[Facts] Extracted ${facts.length} potential fact(s)`);
 
+        // Track facts added this run so intra-batch duplicates are also caught
+        const factsInScope = [...existingFacts];
         let savedCount = 0;
+
         for (const factContent of facts) {
             if (typeof factContent !== 'string' || !factContent.trim()) continue;
 
             try {
-                // Summarize if too long
                 const summarized = await summarizeFact(genAI, factContent.trim());
-                const savedFact = await addFact(supabase, userProfile.id, summarized, 'auto');
 
+                const duplicate = await isDuplicateFact(genAI, summarized, factsInScope);
+                if (duplicate) {
+                    console.log(`[Facts] Skipped duplicate: "${summarized.substring(0, 60)}..."`);
+                    continue;
+                }
+
+                const savedFact = await addFact(supabase, userProfile.id, summarized, 'auto');
                 if (savedFact) {
                     console.log(`[Facts] Saved: "${summarized.substring(0, 60)}${summarized.length > 60 ? '...' : ''}"`);
+                    factsInScope.push(savedFact);
                     savedCount++;
                 }
             } catch (error) {

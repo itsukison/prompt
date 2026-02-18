@@ -15,7 +15,7 @@ const ArrowUpIcon = (
 );
 
 const StopIcon = (
-  <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center border border-white/10 hover:bg-zinc-700 transition-colors">
+  <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center border border-white/10 hover:bg-zinc-700 transition-colors animate-pulse">
     <div className="w-2 h-2 bg-white rounded-[1px]" />
   </div>
 );

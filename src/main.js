@@ -142,7 +142,7 @@ app.whenReady().then(async () => {
         console.error('[App] Supabase initialization failed. Showing auth window anyway.');
         mainWindow = createMainWindow(null);
         mainWindow.on('closed', () => { mainWindow = null; });
-        setupIPC({ desktopCapturer, getAppState, transitionToOverlayMode, transitionToAuthMode });
+        setupIPC({ desktopCapturer, supabase, getAppState, transitionToOverlayMode, transitionToAuthMode });
         return;
     }
 

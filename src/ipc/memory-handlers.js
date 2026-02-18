@@ -1,6 +1,6 @@
 const { ipcMain } = require('electron');
 const { ok, fail } = require('../utils/ipc-response');
-const { getAllFacts, getFactCount, addFact, updateFact, deleteFact, MAX_FACTS } = require('../services/facts-service');
+const { getAllFacts, getFactCount, addFact, updateFact, deleteFact, isDuplicateFact, MAX_FACTS } = require('../services/facts-service');
 
 /**
  * Setup IPC handlers for facts (formerly memory) system
@@ -25,6 +25,12 @@ function setupMemoryHandlers({ supabase, getAppState }) {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return fail('Not authenticated');
+
+            const { genAI } = getAppState();
+            const existingFacts = await getAllFacts(supabase, user.id);
+
+            const duplicate = await isDuplicateFact(genAI, content, existingFacts);
+            if (duplicate) return fail('A similar fact already exists');
 
             const fact = await addFact(supabase, user.id, content, 'manual');
             if (!fact) return fail('Maximum of 10 facts reached');
@@ -115,10 +121,16 @@ function setupMemoryHandlers({ supabase, getAppState }) {
     });
 
     ipcMain.handle('memory:add', async (event, content, _category) => {
-        // Ignore category - new system doesn't use categories
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return fail('Not authenticated');
+
+            const { genAI } = getAppState();
+            const existingFacts = await getAllFacts(supabase, user.id);
+
+            const duplicate = await isDuplicateFact(genAI, content, existingFacts);
+            if (duplicate) return fail('A similar fact already exists');
+
             const fact = await addFact(supabase, user.id, content, 'manual');
             if (!fact) return fail('Maximum of 10 facts reached');
             return ok({ memory: fact });
