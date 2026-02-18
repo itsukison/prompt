@@ -168,7 +168,7 @@ function formatFactsForPrompt(facts) {
     if (!facts || facts.length === 0) return '';
 
     const factsList = facts.map(f => `- ${f.content}`).join('\n');
-    return `Here are facts about the user to help personalize responses:\n${factsList}`;
+    return `User background (reference only — inform your understanding of who the user is, but do not include these details in output unless the request explicitly calls for them):\n${factsList}`;
 }
 
 /**
