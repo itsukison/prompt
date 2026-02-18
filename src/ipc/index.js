@@ -43,7 +43,8 @@ function setupIPC(deps) {
             if (pasted) {
                 console.log('[Insert] Paste simulated successfully');
             } else {
-                console.error('[Insert] Paste simulation failed - text is in clipboard, use Cmd+V manually');
+                const pasteKey = IS_MAC ? 'Cmd+V' : 'Ctrl+V';
+                console.error(`[Insert] Paste simulation failed - text is in clipboard, use ${pasteKey} manually`);
             }
             state.previousApp = null; // cleared via setter on appState proxy
             return ok();

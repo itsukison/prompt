@@ -188,9 +188,12 @@ app.whenReady().then(async () => {
     if (IS_MAC) {
         setTimeout(async () => {
             try {
-                await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 1, height: 1 } });
-                console.log('[Screenshot] Screen recording API warmed up');
-            } catch (e) { /* best-effort warmup */ }
+                const warmupSources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 1, height: 1 } });
+                console.log('[Screenshot] Screen recording API warmed up, got', warmupSources.length, 'sources');
+            } catch (e) {
+                console.error('[Screenshot] Warmup FAILED:', e.message);
+                console.error('[Screenshot] Warmup stack:', e.stack);
+            }
         }, 2000);
     }
 });

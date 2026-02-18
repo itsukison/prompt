@@ -56,7 +56,7 @@ function setupGenerationHandlers({ desktopCapturer, getAppState }) {
                         prompt_text: prompt.substring(0, 500),
                         prompt_tokens: promptTokens,
                         completion_tokens: completionTokens,
-                        model: 'gemini-3-flash-preview',
+                        model: 'gemini-2.5-flash',
                     });
 
                     await state.supabase.from('user_profiles').update({
@@ -108,6 +108,13 @@ function setupGenerationHandlers({ desktopCapturer, getAppState }) {
     });
 
     ipcMain.handle('check-context-need', async (event, prompt) => {
+        const state = getAppState();
+
+        // Respect user's screenshot toggle
+        if (state.currentUserProfile?.screenshot_enabled === false) {
+            return { needsContext: false, source: 'disabled' };
+        }
+
         const { checkContextNeed, checkContextWithLLM } = require('../services/context-service');
         const heuristicResult = checkContextNeed(prompt);
         console.log('[Context Check] Heuristics:', heuristicResult);
@@ -117,7 +124,6 @@ function setupGenerationHandlers({ desktopCapturer, getAppState }) {
         }
 
         console.log('[Context Check] Low confidence, consulting LLM...');
-        const state = getAppState();
         const llmResult = await checkContextWithLLM(state.genAI, prompt);
         return { needsContext: llmResult, source: 'llm' };
     });

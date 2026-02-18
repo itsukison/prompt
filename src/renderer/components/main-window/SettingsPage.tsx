@@ -29,7 +29,8 @@ export function SettingsPage() {
     profile, setProfile, userEmail, isLoading,
     isEditingName, setIsEditingName, editedName, setEditedName,
     selectedStyle, customStyleInput, setCustomStyleInput,
-    handleSaveName, handleStyleSelect, handleSaveCustomStyle, handleLogout,
+    handleSaveName, handleStyleSelect, handleSaveCustomStyle,
+    handleScreenshotToggle, handleLogout,
   } = useProfile();
 
   const {
@@ -122,12 +123,14 @@ export function SettingsPage() {
               editedName={editedName}
               selectedStyle={selectedStyle}
               customStyleInput={customStyleInput}
+              screenshotEnabled={profile?.screenshot_enabled !== false}
               onEditName={() => setIsEditingName(true)}
               onSaveName={handleSaveName}
               onEditedNameChange={setEditedName}
               onStyleSelect={handleStyleSelect}
               onCustomStyleChange={setCustomStyleInput}
               onSaveCustomStyle={handleSaveCustomStyle}
+              onScreenshotToggle={handleScreenshotToggle}
             />
           </TabsContent>
 

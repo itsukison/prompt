@@ -1,11 +1,16 @@
 // Context detection patterns - English
+// Rules: only fire when the user clearly references on-screen content (this/that/it/here/above)
 const CONTEXT_PATTERNS_EN = [
-    /\b(reply|respond|answer)\s*(to)?\s*(this|the)?\b/i,
-    /\bwhat\s+(should|do|can|would)\s+i\s+(say|write|respond|reply)\b/i,
-    /\b(this|the)\s+(email|message|post|comment|tweet|text|slack|dm)\b/i,
-    /\bhow\s+(should|do|can|would)\s+i\s+(reply|respond|answer)\b/i,
-    /\bwrite\s+(a\s+)?(response|reply|answer)\s*(to)?\s*(this)?\b/i,
-    /\bget\s+back\s+to\b/i,
+    // "reply to this", "respond to it", "answer this" — requires explicit demonstrative
+    /\b(reply|respond|answer)\s+(to\s+)?(this|that|it)\b/i,
+    // "what should I say to this", "what do I write back to this"
+    /\bwhat\s+(should|do|can|would)\s+i\s+(say|write|respond|reply)\s+(to\s+)?(this|that|it)\b/i,
+    // "this email", "this message", "this post" — explicit on-screen reference
+    /\bthis\s+(email|message|post|comment|tweet|text|slack|dm|thread)\b/i,
+    // "how should I reply to this"
+    /\bhow\s+(should|do|can|would)\s+i\s+(reply|respond|answer)\s+(to\s+)?(this|that|it)\b/i,
+    // "write a reply to this", "write a response to this"
+    /\bwrite\s+(a\s+)?(response|reply|answer)\s+(to\s+)?(this|that|it)\b/i,
 ];
 
 // Context detection patterns - Japanese
@@ -48,7 +53,10 @@ function checkContextNeed(prompt) {
     for (const pattern of CONTEXT_PATTERNS_JP) {
         if (pattern.test(prompt)) return { needsContext: true, confidence: 'high' };
     }
-    if (/\b(this|that|these|those)\b/i.test(prompt) || /これ|それ|あれ|この|その/.test(prompt)) {
+    // Only escalate to LLM when demonstrative + communication verb appear together
+    const hasDemo = /\b(this|that|these|those)\b/i.test(prompt) || /これ|それ|あれ|この|その/.test(prompt);
+    const hasCommVerb = /\b(reply|respond|answer|write|say|message|email)\b/i.test(prompt) || /返信|返事|書|言/.test(prompt);
+    if (hasDemo && hasCommVerb) {
         return { needsContext: null, confidence: 'low' };
     }
     return { needsContext: false, confidence: 'high' };
@@ -64,7 +72,7 @@ async function checkContextWithLLM(genAI, prompt) {
     if (!genAI) return false;
     try {
         const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
-        const checkPrompt = `Analyze this user request and determine if it requires visual context from the user's screen to answer properly.\n\nUser request: "${prompt}"\n\nDoes this request need to see what's on the user's screen (like an email, message, document, or UI) to provide a good response?\n\nAnswer with only: YES or NO`;
+        const checkPrompt = `Does this request REQUIRE seeing the user's screen to respond — meaning it references a specific visible email, message, or document that cannot be answered without seeing it?\n\nUser request: "${prompt}"\n\nOnly answer YES if the request explicitly refers to something on screen. Answer NO for generic writing requests, even if they mention replies or emails in general.\n\nAnswer with only: YES or NO`;
         const result = await model.generateContent(checkPrompt);
         const response = result.response.text().trim().toUpperCase();
         console.log('[Context Check] LLM response:', response);
@@ -83,10 +91,22 @@ async function checkContextWithLLM(genAI, prompt) {
  */
 async function captureScreenshot(desktopCapturer, previousApp) {
     try {
+        // Check Screen Recording permission on macOS before attempting capture
+        const { systemPreferences } = require('electron');
+        if (process.platform === 'darwin' && systemPreferences.getMediaAccessStatus) {
+            const screenStatus = systemPreferences.getMediaAccessStatus('screen');
+            console.log('[Screenshot] Screen Recording permission status:', screenStatus);
+            if (screenStatus !== 'granted') {
+                return { error: 'screen_recording_permission' };
+            }
+        }
+
         const sources = await desktopCapturer.getSources({
             types: ['window'],
             thumbnailSize: { width: 1920, height: 1080 }
         });
+
+        console.log('[Screenshot] Got', sources.length, 'window sources');
 
         let targetSource = null;
         if (previousApp) {
@@ -100,8 +120,19 @@ async function captureScreenshot(desktopCapturer, previousApp) {
             );
         }
         if (!targetSource) {
-            console.warn('[Screenshot] No suitable window found');
-            return null;
+            // Fallback: capture the entire screen instead of a specific window
+            console.log('[Screenshot] No suitable window found, falling back to screen capture');
+            const screenSources = await desktopCapturer.getSources({
+                types: ['screen'],
+                thumbnailSize: { width: 1920, height: 1080 }
+            });
+            if (screenSources.length > 0) {
+                targetSource = screenSources[0];
+                console.log('[Screenshot] Using screen source:', targetSource.name);
+            } else {
+                console.warn('[Screenshot] No screen sources available either');
+                return null;
+            }
         }
 
         console.log('[Screenshot] Captured window:', targetSource.name);

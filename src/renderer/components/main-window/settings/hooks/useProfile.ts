@@ -11,6 +11,7 @@ export interface ProfileData {
   subscription_tier: string;
   onboarding_completed: boolean;
   memory_enabled?: boolean;
+  screenshot_enabled?: boolean;
 }
 
 export function useProfile() {
@@ -77,6 +78,13 @@ export function useProfile() {
     } catch { alert('Failed to save style'); }
   }, [customStyleInput, promptOS]);
 
+  const handleScreenshotToggle = useCallback(async (enabled: boolean) => {
+    try {
+      const result = await promptOS.profile.update({ screenshot_enabled: enabled });
+      if (result.success) setProfile(result.profile);
+    } catch { console.error('Failed to update screenshot setting'); }
+  }, [promptOS]);
+
   const handleLogout = useCallback(async () => {
     try { await promptOS.auth.signOut(); }
     catch { alert('Failed to log out'); }
@@ -86,6 +94,7 @@ export function useProfile() {
     profile, setProfile, userEmail, isLoading,
     isEditingName, setIsEditingName, editedName, setEditedName,
     selectedStyle, customStyleInput, setCustomStyleInput,
-    handleSaveName, handleStyleSelect, handleSaveCustomStyle, handleLogout,
+    handleSaveName, handleStyleSelect, handleSaveCustomStyle,
+    handleScreenshotToggle, handleLogout,
   };
 }

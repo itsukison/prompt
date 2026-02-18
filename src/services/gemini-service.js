@@ -1,5 +1,8 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
+const TEXT_MODEL = 'gemini-2.5-flash';
+const VISION_MODEL = 'gemini-2.5-flash';
+
 const WRITING_STYLE_GUIDES = {
     professional: "Write in a clear, polished, and business-appropriate tone. Use complete sentences, avoid slang, and maintain a respectful, confident voice.",
     casual: "Write in a friendly, conversational tone. Use contractions, simple language, and feel free to be warm and approachable.",
@@ -144,33 +147,29 @@ async function generateText(genAI, prompt, userProfile, supabase, screenshotData
 
     const systemInstruction = parts.join('\n\n');
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview', systemInstruction });
-
     let result, response, text;
 
     if (screenshotDataUrl) {
-        console.log('[Gemini] Using multimodal generation with screenshot');
+        console.log(`[Gemini] Multimodal generation using ${VISION_MODEL}`);
         if (!screenshotDataUrl.startsWith('data:image/')) throw new Error('Invalid screenshot data URL format');
         const commaIndex = screenshotDataUrl.indexOf(',');
         if (commaIndex === -1) throw new Error('Invalid screenshot data URL format');
         const mimeType = screenshotDataUrl.substring(0, commaIndex).match(/data:(image\/[^;]+)/)?.[1] || 'image/png';
         const base64Data = screenshotDataUrl.substring(commaIndex + 1);
-        const parts = [
+        const visionModel = genAI.getGenerativeModel({ model: VISION_MODEL, systemInstruction });
+        const imageParts = [
             { inlineData: { mimeType, data: base64Data } },
             { text: `[Visual context from user's screen is provided above]\n\n${prompt}` }
         ];
-        // Note: model.generateContent doesn't support signal in older SDKs but checking if we can pass it or just rely on wrapper
-        // The wrapper will handle the abort before/after call, but we can't easily cancel in-flight request unless SDK supports it
-        // However, we can ignore the result.
-        result = await generateWithRetry(() => model.generateContent(parts), overlayWindow, 3, abortSignal);
+        result = await generateWithRetry(() => visionModel.generateContent(imageParts), overlayWindow, 3, abortSignal);
         response = result.response;
         text = response.text();
     } else {
         if (!chatSessionRef.current) {
-            chatSessionRef.current = model.startChat({ history: [], generationConfig: { maxOutputTokens: 2048 } });
-            console.log('[Gemini] Started new chat session');
+            const textModel = genAI.getGenerativeModel({ model: TEXT_MODEL, systemInstruction });
+            chatSessionRef.current = textModel.startChat({ history: [], generationConfig: { maxOutputTokens: 2048 } });
+            console.log(`[Gemini] Started new chat session using ${TEXT_MODEL}`);
         }
-        // sendMessage also doesn't explicitly document signal in all versions, checking...
         result = await generateWithRetry(() => chatSessionRef.current.sendMessage(prompt), overlayWindow, 3, abortSignal);
         response = result.response;
         text = response.text();

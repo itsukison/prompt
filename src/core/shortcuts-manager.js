@@ -22,7 +22,7 @@ function registerShortcuts({ onToggleOverlay, onUpdateContext, onOpenSettings })
         console.log('Update context shortcut registered:', updateContextShortcut);
     }
 
-    const settingsShortcut = IS_MAC ? 'Command+Shift+/' : 'Control+Shift+/';
+    const settingsShortcut = IS_MAC ? 'Command+Shift+/' : 'Control+,';
     const settingsRegistered = globalShortcut.register(settingsShortcut, onOpenSettings);
     if (!settingsRegistered) {
         console.error('Failed to register settings shortcut:', settingsShortcut);

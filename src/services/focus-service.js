@@ -9,14 +9,24 @@ const OPEN_A_APPS = ['Google Chrome', 'Chrome', 'Brave Browser', 'Microsoft Edge
  * @returns {string|null}
  */
 function getFrontmostApp() {
-    if (!IS_MAC) return null;
-    try {
-        const script = 'tell application "System Events" to get name of first process whose frontmost is true';
-        return execSync(`osascript -e '${script}'`, { encoding: 'utf-8' }).trim();
-    } catch (error) {
-        console.error('[Focus] Failed to get frontmost app:', error.message);
-        return null;
+    if (IS_MAC) {
+        try {
+            const script = 'tell application "System Events" to get name of first process whose frontmost is true';
+            return execSync(`osascript -e '${script}'`, { encoding: 'utf-8' }).trim();
+        } catch (error) {
+            console.error('[Focus] Failed to get frontmost app:', error.message);
+            return null;
+        }
+    } else if (IS_WINDOWS) {
+        try {
+            const psScript = `Add-Type @"\nusing System;\nusing System.Runtime.InteropServices;\npublic class FocusHelper {\n    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();\n    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);\n}\n"@\n$hwnd = [FocusHelper]::GetForegroundWindow()\n$pid = 0\n[FocusHelper]::GetWindowThreadProcessId($hwnd, [ref]$pid) | Out-Null\n(Get-Process -Id $pid).ProcessName`;
+            return execSync(`powershell -NoProfile -Command "${psScript.replace(/"/g, '\\"')}"`, { encoding: 'utf-8', timeout: 2000 }).trim();
+        } catch (error) {
+            console.error('[Focus] Failed to get frontmost app:', error.message);
+            return null;
+        }
     }
+    return null;
 }
 
 /**
@@ -26,14 +36,46 @@ function getFrontmostApp() {
  */
 function activateApp(appName) {
     return new Promise((resolve) => {
-        if (!IS_MAC || !appName) { resolve(false); return; }
+        if (!appName) { resolve(false); return; }
 
-        const needsOpenA = OPEN_A_APPS.some(name =>
-            appName.toLowerCase().includes(name.toLowerCase())
-        );
+        if (IS_MAC) {
+            const needsOpenA = OPEN_A_APPS.some(name =>
+                appName.toLowerCase().includes(name.toLowerCase())
+            );
 
-        if (needsOpenA) {
-            exec(`open -a "${appName}"`, (error) => {
+            if (needsOpenA) {
+                exec(`open -a "${appName}"`, (error) => {
+                    if (error) {
+                        console.error(`[Focus] Failed to activate "${appName}":`, error.message);
+                        resolve(false);
+                    } else {
+                        console.log(`[Focus] Activated "${appName}"`);
+                        resolve(true);
+                    }
+                });
+            } else {
+                const script = `tell application "${appName}" to activate`;
+                exec(`osascript -e '${script}'`, (error) => {
+                    if (error) {
+                        console.warn(`[Focus] AppleScript failed for "${appName}", falling back to 'open -a'`);
+                        exec(`open -a "${appName}"`, (fallbackError) => {
+                            if (fallbackError) {
+                                console.error(`[Focus] Fallback also failed for "${appName}":`, fallbackError.message);
+                                resolve(false);
+                            } else {
+                                console.log(`[Focus] Activated "${appName}" via fallback`);
+                                resolve(true);
+                            }
+                        });
+                    } else {
+                        console.log(`[Focus] Activated "${appName}"`);
+                        resolve(true);
+                    }
+                });
+            }
+        } else if (IS_WINDOWS) {
+            const safeName = appName.replace(/'/g, "''");
+            exec(`powershell -NoProfile -Command "(New-Object -ComObject WScript.Shell).AppActivate('${safeName}')"`, { timeout: 2000 }, (error) => {
                 if (error) {
                     console.error(`[Focus] Failed to activate "${appName}":`, error.message);
                     resolve(false);
@@ -43,24 +85,7 @@ function activateApp(appName) {
                 }
             });
         } else {
-            const script = `tell application "${appName}" to activate`;
-            exec(`osascript -e '${script}'`, (error) => {
-                if (error) {
-                    console.warn(`[Focus] AppleScript failed for "${appName}", falling back to 'open -a'`);
-                    exec(`open -a "${appName}"`, (fallbackError) => {
-                        if (fallbackError) {
-                            console.error(`[Focus] Fallback also failed for "${appName}":`, fallbackError.message);
-                            resolve(false);
-                        } else {
-                            console.log(`[Focus] Activated "${appName}" via fallback`);
-                            resolve(true);
-                        }
-                    });
-                } else {
-                    console.log(`[Focus] Activated "${appName}"`);
-                    resolve(true);
-                }
-            });
+            resolve(false);
         }
     });
 }
@@ -102,8 +127,16 @@ async function getSelectedText(clipboard) {
                 if (error) console.error('[Selection] Copy failed:', error.message);
                 resolve();
             });
+        } else if (IS_WINDOWS) {
+            exec('powershell -NoProfile -Command "$wshell = New-Object -ComObject wscript.shell; $wshell.SendKeys(\'^c\')"', (error) => {
+                if (error) console.error('[Selection] Copy failed:', error.message);
+                resolve();
+            });
         } else {
-            resolve();
+            exec('xdotool key ctrl+c', (error) => {
+                if (error) console.error('[Selection] Copy failed:', error.message);
+                resolve();
+            });
         }
     });
 

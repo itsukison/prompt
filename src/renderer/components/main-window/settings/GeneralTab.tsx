@@ -17,18 +17,20 @@ interface GeneralTabProps {
   editedName: string;
   selectedStyle: string;
   customStyleInput: string;
+  screenshotEnabled: boolean;
   onEditName: () => void;
   onSaveName: () => void;
   onEditedNameChange: (v: string) => void;
   onStyleSelect: (id: string) => void;
   onCustomStyleChange: (v: string) => void;
   onSaveCustomStyle: () => void;
+  onScreenshotToggle: (enabled: boolean) => void;
 }
 
 export function GeneralTab({
   displayName, isEditingName, editedName, selectedStyle,
-  customStyleInput, onEditName, onSaveName, onEditedNameChange,
-  onStyleSelect, onCustomStyleChange, onSaveCustomStyle,
+  customStyleInput, screenshotEnabled, onEditName, onSaveName, onEditedNameChange,
+  onStyleSelect, onCustomStyleChange, onSaveCustomStyle, onScreenshotToggle,
 }: GeneralTabProps) {
   return (
     <div className="space-y-8">
@@ -90,6 +92,20 @@ export function GeneralTab({
                 )}
               </div>
             ))}
+          </div>
+
+          {/* Screenshot Context */}
+          <div
+            className="flex justify-between items-center py-3 hover:bg-zinc-900/20 -mx-3 px-3 rounded-md transition-colors cursor-pointer mt-2"
+            onClick={() => onScreenshotToggle(!screenshotEnabled)}
+          >
+            <div className="space-y-0.5">
+              <h3 className="text-sm font-medium text-zinc-200">Screen Context</h3>
+              <p className="text-xs text-zinc-500">Automatically capture a screenshot when you reference on-screen content.</p>
+            </div>
+            <div className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ml-4 ${screenshotEnabled ? 'bg-orange-500' : 'bg-zinc-700'}`}>
+              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${screenshotEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </div>
           </div>
         </div>
       </section>

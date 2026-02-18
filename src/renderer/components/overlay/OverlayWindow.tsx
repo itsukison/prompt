@@ -205,7 +205,7 @@ export function OverlayWindow() {
       {/* Result Section - conditional render based on derived state */}
       {hasResult && (
         <div className="mb-3 bg-[#252525] bg-gradient-to-b from-white/[0.04] to-transparent border border-white/[0.08] backdrop-blur-xl rounded-[20px] p-5 shadow-lg animate-slide-up origin-bottom w-full max-h-[calc(100vh-100px)] overflow-y-auto grainy-texture">
-          <div className="result-text text-[15px] leading-relaxed text-gray-200 max-h-[350px] overflow-y-auto whitespace-pre-wrap pr-1">
+          <div className="result-text text-[15px] leading-relaxed text-gray-200 whitespace-pre-wrap pr-1">
             {result}
           </div>
           <div className="flex gap-2 mt-2 justify-end">

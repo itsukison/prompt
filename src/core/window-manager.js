@@ -96,8 +96,7 @@ function showOverlay(overlayWindow, selection) {
 
     const cursorPoint = screen.getCursorScreenPoint();
     const display = screen.getDisplayNearestPoint(cursorPoint);
-    const { width, height } = display.bounds;
-    const { x: displayX, y: displayY } = display.bounds;
+    const { x: displayX, y: displayY, width, height } = display.workArea;
     const windowWidth = 600;
     const windowHeight = 400;
 
