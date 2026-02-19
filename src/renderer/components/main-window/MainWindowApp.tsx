@@ -6,6 +6,7 @@ import { OnboardingLanguage } from './OnboardingLanguage';
 import { OnboardingStep2 } from './OnboardingStep2';
 import { OnboardingStep3 } from './OnboardingStep3';
 import { SettingsPage } from './SettingsPage';
+import { UpdateToast } from '../UpdateToast';
 
 // ...
 
@@ -60,6 +61,7 @@ export function MainWindowApp() {
       {currentPage === 'onboarding-2' && <OnboardingStep2 onNavigate={navigate} />}
       {currentPage === 'onboarding-3' && <OnboardingStep3 onNavigate={navigate} />}
       {currentPage === 'settings' && <SettingsPage />}
+      <UpdateToast />
     </>
   );
 }

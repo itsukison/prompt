@@ -5,28 +5,40 @@ const { IS_MAC, IS_WINDOWS } = require('../utils/platform');
 const OPEN_A_APPS = ['Google Chrome', 'Chrome', 'Brave Browser', 'Microsoft Edge', 'Arc'];
 
 /**
- * Get the name of the currently frontmost application (macOS only)
- * @returns {string|null}
+ * Get the name and front window title of the currently frontmost application.
+ * @returns {{ appName: string|null, windowTitle: string|null }}
  */
 function getFrontmostApp() {
     if (IS_MAC) {
         try {
-            const script = 'tell application "System Events" to get name of first process whose frontmost is true';
-            return execSync(`osascript -e '${script}'`, { encoding: 'utf-8' }).trim();
+            const appScript = 'tell application "System Events" to get name of first process whose frontmost is true';
+            const appName = execSync(`osascript -e '${appScript}'`, { encoding: 'utf-8' }).trim();
+
+            let windowTitle = null;
+            try {
+                const winScript = 'tell application "System Events" to get name of front window of (first process whose frontmost is true)';
+                windowTitle = execSync(`osascript -e '${winScript}'`, { encoding: 'utf-8' }).trim();
+            } catch {
+                // App doesn't expose window names via Accessibility — not fatal
+            }
+
+            return { appName, windowTitle };
         } catch (error) {
             console.error('[Focus] Failed to get frontmost app:', error.message);
-            return null;
+            return { appName: null, windowTitle: null };
         }
     } else if (IS_WINDOWS) {
         try {
-            const psScript = `Add-Type @"\nusing System;\nusing System.Runtime.InteropServices;\npublic class FocusHelper {\n    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();\n    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);\n}\n"@\n$hwnd = [FocusHelper]::GetForegroundWindow()\n$pid = 0\n[FocusHelper]::GetWindowThreadProcessId($hwnd, [ref]$pid) | Out-Null\n(Get-Process -Id $pid).ProcessName`;
-            return execSync(`powershell -NoProfile -Command "${psScript.replace(/"/g, '\\"')}"`, { encoding: 'utf-8', timeout: 2000 }).trim();
+            const psScript = `Add-Type @"\nusing System;\nusing System.Runtime.InteropServices;\npublic class FocusHelper {\n    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();\n    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);\n    [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder text, int count);\n}\n"@\n$hwnd = [FocusHelper]::GetForegroundWindow()\n$pid = 0\n[FocusHelper]::GetWindowThreadProcessId($hwnd, [ref]$pid) | Out-Null\n$appName = (Get-Process -Id $pid).ProcessName\n$sb = New-Object System.Text.StringBuilder 256\n[FocusHelper]::GetWindowText($hwnd, $sb, 256) | Out-Null\n$windowTitle = $sb.ToString()\n"$appName|$windowTitle"`;
+            const raw = execSync(`powershell -NoProfile -Command "${psScript.replace(/"/g, '\\"')}"`, { encoding: 'utf-8', timeout: 2000 }).trim();
+            const [appName, windowTitle] = raw.split('|');
+            return { appName: appName || null, windowTitle: windowTitle || null };
         } catch (error) {
             console.error('[Focus] Failed to get frontmost app:', error.message);
-            return null;
+            return { appName: null, windowTitle: null };
         }
     }
-    return null;
+    return { appName: null, windowTitle: null };
 }
 
 /**

@@ -95,6 +95,29 @@ export interface PromptOSAPI {
   };
   onNavigate: (callback: (route: string) => void) => () => void;
   openSystemSettings: (pane: 'screen-recording') => Promise<void>;
+
+  update: {
+    onAvailable: (callback: (info: UpdateInfo) => void) => () => void;
+    onProgress: (callback: (data: UpdateProgress) => void) => () => void;
+    onReady: (callback: (info: UpdateInfo) => void) => () => void;
+    onError: (callback: (data: UpdateError) => void) => () => void;
+    install: () => Promise<void>;
+  };
+}
+
+export interface UpdateInfo {
+  version: string;
+  releaseDate?: string;
+  releaseName?: string;
+}
+
+export interface UpdateProgress {
+  percent: number;
+  version: string | null;
+}
+
+export interface UpdateError {
+  message: string;
 }
 
 declare global {

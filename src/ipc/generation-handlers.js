@@ -28,7 +28,7 @@ function setupGenerationHandlers({ desktopCapturer, getAppState }) {
             if (includeScreenshot) {
                 console.log('[IPC] Screenshot requested, capturing...');
                 const { captureScreenshot, analyzeScreenshot } = require('../services/context-service');
-                const screenshotResult = await captureScreenshot(desktopCapturer, state.previousApp);
+                const screenshotResult = await captureScreenshot(desktopCapturer, state.previousApp, state.previousWindow);
                 if (screenshotResult && typeof screenshotResult === 'object' && screenshotResult.error) {
                     return { success: false, error: screenshotResult.error };
                 }
@@ -164,7 +164,7 @@ function setupGenerationHandlers({ desktopCapturer, getAppState }) {
     ipcMain.handle('screenshot:capture', async () => {
         const state = getAppState();
         const { captureScreenshot } = require('../services/context-service');
-        return await captureScreenshot(desktopCapturer, state.previousApp);
+        return await captureScreenshot(desktopCapturer, state.previousApp, state.previousWindow);
     });
 }
 

@@ -6,6 +6,7 @@ const { setupGenerationHandlers } = require('./generation-handlers');
 const { setupUsageHandlers } = require('./usage-handlers');
 const { IS_MAC } = require('../utils/platform');
 const { ok, fail } = require('../utils/ipc-response');
+const { installUpdate } = require('../core/updater');
 
 /**
  * Register all IPC handlers
@@ -74,6 +75,11 @@ function setupIPC(deps) {
         const state = deps.getAppState();
         const { hideOverlay } = require('../core/window-manager');
         hideOverlay(state.overlayWindow);
+    });
+
+    // Install downloaded update and relaunch
+    ipcMain.handle('update:install', () => {
+        installUpdate();
     });
 }
 

@@ -15,6 +15,7 @@ const { getFrontmostApp, getSelectedText, getBrowserContext } = require('./servi
 const { createMainWindow, createOverlayWindow, showOverlay, hideOverlay, updateOverlayContext, ICON_PATH } = require('./core/window-manager');
 const { registerShortcuts, unregisterShortcuts } = require('./core/shortcuts-manager');
 const { setupIPC } = require('./ipc/index');
+const { initUpdater, flushPendingUpdate } = require('./core/updater');
 const { IS_MAC } = require('./utils/platform');
 
 // =============================================================================
@@ -28,6 +29,7 @@ let grokAI = null;
 let supabase = null;
 let chatSessionRef = { current: null }; // Mutable ref passed to gemini-service
 let previousApp = null;
+let previousWindow = null;
 let previousBrowserContext = null;
 let currentUserProfile = null;
 let isAuthenticated = false;
@@ -49,6 +51,8 @@ const appState = {
     get chatSessionRef() { return chatSessionRef; },
     get previousApp() { return previousApp; },
     set previousApp(v) { previousApp = v; },
+    get previousWindow() { return previousWindow; },
+    set previousWindow(v) { previousWindow = v; },
     get previousBrowserContext() { return previousBrowserContext; },
     get currentUserProfile() { return currentUserProfile; },
     set currentUserProfile(v) { currentUserProfile = v; },
@@ -87,6 +91,7 @@ async function transitionToAuthMode() {
     chatSessionRef.current = null;
     mainWindow = createMainWindow(null);
     mainWindow.on('closed', () => { mainWindow = null; });
+    mainWindow.webContents.on('did-finish-load', () => flushPendingUpdate(mainWindow));
     mainWindow.webContents.send('navigate', 'auth');
     console.log('[Auth] Transitioned to auth mode');
 }
@@ -96,8 +101,10 @@ async function transitionToAuthMode() {
 // =============================================================================
 
 async function handleShowOverlay() {
-    previousApp = getFrontmostApp();
-    console.log(`[Focus] Captured previous app: "${previousApp}"`);
+    const { appName, windowTitle } = getFrontmostApp();
+    previousApp = appName;
+    previousWindow = windowTitle;
+    console.log(`[Focus] Captured previous app: "${previousApp}", window: "${previousWindow}"`);
     previousBrowserContext = getBrowserContext(previousApp);
     chatSessionRef.current = null;
 
@@ -111,7 +118,11 @@ async function handleShowOverlay() {
 }
 
 async function handleUpdateContext() {
-    previousApp = await updateOverlayContext(overlayWindow, getFrontmostApp, getSelectedText, clipboard) || previousApp;
+    const result = await updateOverlayContext(overlayWindow, getFrontmostApp, getSelectedText, clipboard);
+    if (result) {
+        previousApp = result.appName ?? previousApp;
+        previousWindow = result.windowTitle ?? previousWindow;
+    }
     previousBrowserContext = getBrowserContext(previousApp);
 }
 
@@ -130,6 +141,7 @@ function openSettings() {
         mainWindow.on('closed', () => { mainWindow = null; });
         mainWindow.webContents.on('did-finish-load', () => {
             mainWindow.webContents.send('navigate', 'settings');
+            flushPendingUpdate(mainWindow);
         });
     } else {
         mainWindow.show();
@@ -151,7 +163,9 @@ app.whenReady().then(async () => {
         console.error('[App] Supabase initialization failed. Showing auth window anyway.');
         mainWindow = createMainWindow(null);
         mainWindow.on('closed', () => { mainWindow = null; });
+        mainWindow.webContents.on('did-finish-load', () => flushPendingUpdate(mainWindow));
         setupIPC({ desktopCapturer, supabase, getAppState, transitionToOverlayMode, transitionToAuthMode });
+        if (app.isPackaged) initUpdater(getAppState);
         return;
     }
 
@@ -180,19 +194,23 @@ app.whenReady().then(async () => {
                 mainWindow.on('closed', () => { mainWindow = null; });
                 mainWindow.webContents.on('did-finish-load', () => {
                     mainWindow.webContents.send('navigate', 'onboarding-1');
+                    flushPendingUpdate(mainWindow);
                 });
             }
         } else {
             mainWindow = createMainWindow(null);
             mainWindow.on('closed', () => { mainWindow = null; });
+            mainWindow.webContents.on('did-finish-load', () => flushPendingUpdate(mainWindow));
         }
     } catch (err) {
         console.error('[App] Session check failed:', err.message);
         mainWindow = createMainWindow(null);
         mainWindow.on('closed', () => { mainWindow = null; });
+        mainWindow.webContents.on('did-finish-load', () => flushPendingUpdate(mainWindow));
     }
 
     setupIPC({ desktopCapturer, supabase, getAppState, transitionToOverlayMode, transitionToAuthMode });
+    if (app.isPackaged) initUpdater(getAppState);
 
     // Warm up screen recording API to avoid false permission errors on first real use
     if (IS_MAC) {
@@ -237,6 +255,7 @@ app.on('activate', () => {
             mainWindow.on('closed', () => { mainWindow = null; });
             mainWindow.webContents.on('did-finish-load', () => {
                 mainWindow.webContents.send('navigate', 'settings');
+                flushPendingUpdate(mainWindow);
             });
         } else {
             mainWindow.show();
@@ -246,6 +265,7 @@ app.on('activate', () => {
         if (!mainWindow) {
             mainWindow = createMainWindow(null);
             mainWindow.on('closed', () => { mainWindow = null; });
+            mainWindow.webContents.on('did-finish-load', () => flushPendingUpdate(mainWindow));
         }
     }
 });

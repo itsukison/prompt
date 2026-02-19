@@ -126,20 +126,20 @@ function hideOverlay(overlayWindow) {
  * @param {Function} getFrontmostApp
  * @param {Function} getSelectedText
  * @param {Electron.Clipboard} clipboard
- * @returns {Promise<string|null>} the updated previousApp name
+ * @returns {Promise<{ appName: string|null, windowTitle: string|null }|null>}
  */
 async function updateOverlayContext(overlayWindow, getFrontmostApp, getSelectedText, clipboard) {
     if (!overlayWindow || !overlayWindow.isVisible()) {
         console.log('[Overlay] Not visible, ignoring context update request');
         return null;
     }
-    const previousApp = getFrontmostApp();
-    console.log(`[Focus] Re-captured previous app during update: "${previousApp}"`);
+    const { appName, windowTitle } = getFrontmostApp();
+    console.log(`[Focus] Re-captured previous app during update: "${appName}", window: "${windowTitle}"`);
     const selection = await getSelectedText(clipboard);
     overlayWindow.show();
     overlayWindow.focus();
     overlayWindow.webContents.send('context-updated', { selection });
-    return previousApp;
+    return { appName, windowTitle };
 }
 
 module.exports = { createMainWindow, createOverlayWindow, showOverlay, hideOverlay, updateOverlayContext, ICON_PATH };

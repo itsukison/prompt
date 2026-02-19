@@ -86,10 +86,11 @@ async function checkContextWithLLM(genAI, prompt) {
 /**
  * Capture a screenshot of the previous app's window
  * @param {Electron.DesktopCapturer} desktopCapturer
- * @param {string|null} previousApp
+ * @param {string|null} previousApp - process/app name
+ * @param {string|null} previousWindow - specific window title captured at shortcut time
  * @returns {Promise<string|{error: string}|null>}
  */
-async function captureScreenshot(desktopCapturer, previousApp) {
+async function captureScreenshot(desktopCapturer, previousApp, previousWindow) {
     try {
         // Check Screen Recording permission on macOS before attempting capture
         const { systemPreferences } = require('electron');
@@ -109,11 +110,33 @@ async function captureScreenshot(desktopCapturer, previousApp) {
         console.log('[Screenshot] Got', sources.length, 'window sources');
 
         let targetSource = null;
-        if (previousApp) {
+
+        // 1. Prefer exact window title match (avoids wrong window when app has multiple)
+        if (previousWindow) {
+            const lowerWindow = previousWindow.toLowerCase();
+            targetSource = sources.find(source =>
+                source.name.toLowerCase() === lowerWindow
+            );
+            // Fallback: substring match on window title
+            if (!targetSource) {
+                targetSource = sources.find(source =>
+                    source.name.toLowerCase().includes(lowerWindow) ||
+                    lowerWindow.includes(source.name.toLowerCase())
+                );
+            }
+            if (targetSource) {
+                console.log('[Screenshot] Matched by window title:', targetSource.name);
+            }
+        }
+
+        // 2. Fall back to app-name match (original behaviour)
+        if (!targetSource && previousApp) {
             targetSource = sources.find(source =>
                 source.name.toLowerCase().includes(previousApp.toLowerCase())
             );
         }
+
+        // 3. Last resort: first non-promptos window
         if (!targetSource) {
             targetSource = sources.find(source =>
                 !source.name.toLowerCase().includes('promptos')

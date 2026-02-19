@@ -127,4 +127,28 @@ contextBridge.exposeInMainWorld('promptOS', {
     },
 
     openSystemSettings: (pane) => ipcRenderer.invoke('open-system-settings', pane),
+
+    // =========================================================================
+    // Auto-update
+    // =========================================================================
+
+    update: {
+        onAvailable: (callback) => {
+            ipcRenderer.on('update:available', (_, info) => callback(info));
+            return () => ipcRenderer.removeAllListeners('update:available');
+        },
+        onProgress: (callback) => {
+            ipcRenderer.on('update:progress', (_, data) => callback(data));
+            return () => ipcRenderer.removeAllListeners('update:progress');
+        },
+        onReady: (callback) => {
+            ipcRenderer.on('update:ready', (_, info) => callback(info));
+            return () => ipcRenderer.removeAllListeners('update:ready');
+        },
+        onError: (callback) => {
+            ipcRenderer.on('update:error', (_, data) => callback(data));
+            return () => ipcRenderer.removeAllListeners('update:error');
+        },
+        install: () => ipcRenderer.invoke('update:install'),
+    },
 });
