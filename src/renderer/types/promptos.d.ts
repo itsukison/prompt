@@ -66,6 +66,7 @@ export interface PromptOSAPI {
   profile: {
     get: () => Promise<any>;
     update: (updates: any) => Promise<any>;
+    onLanguageChanged: (callback: (lang: string) => void) => () => void;
   };
   onboarding: {
     complete: (data: any) => Promise<any>;

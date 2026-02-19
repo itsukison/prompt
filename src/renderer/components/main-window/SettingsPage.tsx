@@ -10,16 +10,12 @@ import { AccountTab } from './settings/AccountTab';
 import { MemoryTab } from './settings/MemoryTab';
 import { BillingTab } from './settings/BillingTab';
 import { ShortcutsTab } from './settings/ShortcutsTab';
+import { useTranslation } from '../../hooks/useTranslation';
 
-const TAB_DESCRIPTIONS: Record<string, string> = {
-  general: 'Manage your workspace preferences and settings.',
-  account: 'View and manage your account information.',
-  memory: 'View and manage information the AI remembers about you.',
-  billing: 'Manage your subscription and billing.',
-  shortcuts: 'View keyboard shortcuts and get started.',
-};
+
 
 export function SettingsPage() {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('general');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
     localStorage.getItem('sidebar-collapsed') === 'true'
@@ -29,9 +25,9 @@ export function SettingsPage() {
     profile, setProfile, userEmail, isLoading,
     isEditingName, setIsEditingName, editedName, setEditedName,
     selectedStyle, customStyleInput, setCustomStyleInput,
-    selectedModel, thinkingEnabled,
+    selectedModel, thinkingEnabled, language,
     handleSaveName, handleStyleSelect, handleSaveCustomStyle,
-    handleScreenshotToggle, handleModelSelect, handleThinkingToggle, handleLogout,
+    handleScreenshotToggle, handleModelSelect, handleThinkingToggle, handleLanguageSelect, handleLogout,
   } = useProfile();
 
   const {
@@ -81,11 +77,11 @@ export function SettingsPage() {
         </div>
 
         <TabsList className="flex-1 px-3">
-          <TabsTrigger value="general"><Settings className="w-4 h-4 shrink-0" /><span className="whitespace-nowrap">General</span></TabsTrigger>
-          <TabsTrigger value="account"><User className="w-4 h-4 shrink-0" /><span className="whitespace-nowrap">Account</span></TabsTrigger>
-          <TabsTrigger value="memory"><Brain className="w-4 h-4 shrink-0" /><span className="whitespace-nowrap">Memory</span></TabsTrigger>
-          <TabsTrigger value="billing"><CreditCard className="w-4 h-4 shrink-0" /><span className="whitespace-nowrap">Billing</span></TabsTrigger>
-          <TabsTrigger value="shortcuts"><Keyboard className="w-4 h-4 shrink-0" /><span className="whitespace-nowrap">Shortcuts</span></TabsTrigger>
+          <TabsTrigger value="general"><Settings className="w-4 h-4 shrink-0" /><span className="whitespace-nowrap">{t.settings.sidebar.general}</span></TabsTrigger>
+          <TabsTrigger value="account"><User className="w-4 h-4 shrink-0" /><span className="whitespace-nowrap">{t.settings.sidebar.account}</span></TabsTrigger>
+          <TabsTrigger value="memory"><Brain className="w-4 h-4 shrink-0" /><span className="whitespace-nowrap">{t.settings.sidebar.memory}</span></TabsTrigger>
+          <TabsTrigger value="billing"><CreditCard className="w-4 h-4 shrink-0" /><span className="whitespace-nowrap">{t.settings.sidebar.billing}</span></TabsTrigger>
+          <TabsTrigger value="shortcuts"><Keyboard className="w-4 h-4 shrink-0" /><span className="whitespace-nowrap">{t.settings.sidebar.shortcuts}</span></TabsTrigger>
         </TabsList>
 
         <div className="px-3 mt-auto">
@@ -104,7 +100,7 @@ export function SettingsPage() {
             <Button variant="ghost" size="sm" onClick={handleLogout}
               className="w-full h-8 flex items-center gap-2 px-2 text-xs text-zinc-500 hover:text-zinc-300 justify-start">
               <LogOut className="w-3.5 h-3.5" />
-              Sign out
+              {t.settings.sidebar.sign_out}
             </Button>
           </div>
         </div>
@@ -113,8 +109,8 @@ export function SettingsPage() {
       <main className="flex-1 overflow-y-auto bg-claude-bg h-full">
         <div className="max-w-3xl mx-auto px-12 py-16 animate-fade-in">
           <div className="mb-10">
-            <h1 className="text-2xl font-semibold mb-1 text-zinc-100 capitalize">{activeTab}</h1>
-            <p className="text-zinc-500 text-sm">{TAB_DESCRIPTIONS[activeTab]}</p>
+            <h1 className="text-2xl font-semibold mb-1 text-zinc-100 capitalize">{t.settings.tabs[activeTab as keyof typeof t.settings.tabs]?.title}</h1>
+            <p className="text-zinc-500 text-sm">{t.settings.tabs[activeTab as keyof typeof t.settings.tabs]?.description}</p>
           </div>
 
           <TabsContent value="general">
@@ -124,12 +120,14 @@ export function SettingsPage() {
               screenshotEnabled={profile?.screenshot_enabled !== false}
               selectedModel={selectedModel}
               thinkingEnabled={thinkingEnabled}
+              language={language}
               onStyleSelect={handleStyleSelect}
               onCustomStyleChange={setCustomStyleInput}
               onSaveCustomStyle={handleSaveCustomStyle}
               onScreenshotToggle={handleScreenshotToggle}
               onModelSelect={handleModelSelect}
               onThinkingToggle={handleThinkingToggle}
+              onLanguageSelect={handleLanguageSelect}
             />
           </TabsContent>
 

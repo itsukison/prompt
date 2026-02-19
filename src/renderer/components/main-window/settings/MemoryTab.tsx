@@ -2,6 +2,7 @@ import React from 'react';
 import { Brain, Plus, Edit3, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { useTranslation } from '../../../hooks/useTranslation';
 import type { Fact, FactsStats } from './hooks/useMemory';
 
 interface MemoryTabProps {
@@ -33,15 +34,16 @@ export function MemoryTab({
   onMemoryEdit, onMemoryDelete, onSetIsAddingMemory,
   onSetNewMemoryContent, onMemoryAdd,
 }: MemoryTabProps) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Memory Toggle */}
       <section className="space-y-3">
-        <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-4">Memory System</h3>
+        <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-4">{t.memory.enable.title}</h3>
         <div className="flex justify-between items-center py-3 hover:bg-zinc-900/20 -mx-3 px-3 rounded-md transition-colors">
           <div className="space-y-0.5">
-            <h3 className="text-sm font-medium text-zinc-200">Enable Memory</h3>
-            <p className="text-xs text-zinc-500">Allow the AI to remember facts about you</p>
+            <h3 className="text-sm font-medium text-zinc-200">{t.memory.enable.subtitle}</h3>
+            <p className="text-xs text-zinc-500">{t.memory.enable.description}</p>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input
@@ -58,7 +60,7 @@ export function MemoryTab({
       {/* Capacity */}
       {stats && (
         <section className="space-y-3">
-          <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-4">Capacity</h3>
+          <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-4">{t.memory.capacity.title}</h3>
           <div className="flex items-center gap-4">
             <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
               <div
@@ -69,7 +71,7 @@ export function MemoryTab({
             <span className="text-sm text-zinc-400 tabular-nums">{stats.count} / {stats.max}</span>
           </div>
           {isAtCapacity && (
-            <p className="text-xs text-amber-500">Maximum reached. Delete a memory to add more.</p>
+            <p className="text-xs text-amber-500">{t.memory.capacity.reached}</p>
           )}
         </section>
       )}
@@ -77,11 +79,11 @@ export function MemoryTab({
       {/* Memories List */}
       <section className="space-y-3">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">What I Know About You</h3>
+          <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">{t.memory.list.title}</h3>
           {!isAddingMemory && !isAtCapacity && (
             <Button variant="outline" size="sm" onClick={() => onSetIsAddingMemory(true)}
               className="text-xs text-zinc-400 border-zinc-700 hover:text-zinc-200 h-7">
-              <Plus className="w-3 h-3 mr-1" /> Add
+              <Plus className="w-3 h-3 mr-1" /> {t.memory.list.add_button}
             </Button>
           )}
         </div>
@@ -91,7 +93,7 @@ export function MemoryTab({
             <Textarea
               value={newMemoryContent}
               onChange={(e) => onSetNewMemoryContent(e.target.value)}
-              placeholder="Enter a fact about yourself (e.g., 'My name is Alex' or 'I prefer casual communication')"
+              placeholder={t.memory.list.placeholder}
               className="w-full min-h-[60px] text-sm bg-zinc-800/50 border-zinc-700"
               maxLength={200}
             />
@@ -99,10 +101,10 @@ export function MemoryTab({
               <span className="text-xs text-zinc-500">{newMemoryContent.length}/200</span>
               <div className="flex gap-2">
                 <Button variant="ghost" size="sm" onClick={() => { onSetIsAddingMemory(false); onSetNewMemoryContent(''); }}
-                  className="text-xs">Cancel</Button>
+                  className="text-xs">{t.memory.list.cancel}</Button>
                 <Button variant="default" size="sm" onClick={onMemoryAdd}
                   disabled={!newMemoryContent.trim() || isAddingLoading} className="text-xs">
-                  {isAddingLoading ? 'Saving...' : 'Save'}
+                  {isAddingLoading ? 'Saving...' : t.memory.list.save}
                 </Button>
               </div>
             </div>
@@ -113,8 +115,8 @@ export function MemoryTab({
         {facts.length === 0 && !isAddingMemory ? (
           <div className="text-center py-12 px-4 bg-zinc-900/10 rounded-lg border border-zinc-800/50">
             <Brain className="w-12 h-12 text-zinc-600 mx-auto mb-3" />
-            <p className="text-sm text-zinc-400 mb-1">No memories saved yet</p>
-            <p className="text-xs text-zinc-600">Add facts manually or let the AI learn about you over time</p>
+            <p className="text-sm text-zinc-400 mb-1">{t.memory.list.empty.title}</p>
+            <p className="text-xs text-zinc-600">{t.memory.list.empty.description}</p>
           </div>
         ) : (
           <div className="space-y-1">
@@ -131,8 +133,8 @@ export function MemoryTab({
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-zinc-500">{editingMemoryContent.length}/200</span>
                       <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => onSetEditingMemoryId(null)} className="text-xs">Cancel</Button>
-                        <Button variant="default" size="sm" onClick={() => onMemoryEdit(fact.id)} className="text-xs">Save</Button>
+                        <Button variant="ghost" size="sm" onClick={() => onSetEditingMemoryId(null)} className="text-xs">{t.memory.list.cancel}</Button>
+                        <Button variant="default" size="sm" onClick={() => onMemoryEdit(fact.id)} className="text-xs">{t.memory.list.save}</Button>
                       </div>
                     </div>
                   </div>
@@ -144,7 +146,7 @@ export function MemoryTab({
                     </div>
                     <div className="flex justify-between items-center mt-2 ml-7">
                       <span className="text-[10px] text-zinc-600">
-                        {fact.source === 'auto' ? 'Auto-learned' : 'Manual'} · {new Date(fact.created_at).toLocaleDateString()}
+                        {fact.source === 'auto' ? t.memory.list.auto : t.memory.list.manual} · {new Date(fact.created_at).toLocaleDateString()}
                       </span>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="sm"

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { usePromptOS } from '../../contexts/PromptOSContext';
 import { AuthPage } from './AuthPage';
 import { OnboardingStep1 } from './OnboardingStep1';
+import { OnboardingLanguage } from './OnboardingLanguage';
 import { OnboardingStep2 } from './OnboardingStep2';
 import { OnboardingStep3 } from './OnboardingStep3';
 import { SettingsPage } from './SettingsPage';
@@ -35,7 +36,7 @@ export function MainWindowApp() {
           if (profileResult.success && profileResult.profile?.onboarding_completed) {
             setCurrentPage('settings');
           } else if (profileResult.success) {
-            setCurrentPage('onboarding-1');
+            setCurrentPage('onboarding-language');
           }
         }
         sessionCheckDone = true;
@@ -54,6 +55,7 @@ export function MainWindowApp() {
   return (
     <>
       {currentPage === 'auth' && <AuthPage onNavigate={navigate} />}
+      {currentPage === 'onboarding-language' && <OnboardingLanguage onNavigate={navigate} />}
       {currentPage === 'onboarding-1' && <OnboardingStep1 onNavigate={navigate} />}
       {currentPage === 'onboarding-2' && <OnboardingStep2 onNavigate={navigate} />}
       {currentPage === 'onboarding-3' && <OnboardingStep3 onNavigate={navigate} />}

@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback } from 'react';
 import { usePromptOS } from '../../contexts/PromptOSContext';
+import { useTranslation } from '../../hooks/useTranslation';
 import { Button } from '@/components/ui/button';
 import { ShortcutsDisplay } from './ShortcutsDisplay';
 
@@ -9,6 +10,7 @@ interface OnboardingStep3Props {
 
 export function OnboardingStep3({ onNavigate }: OnboardingStep3Props) {
   const promptOS = usePromptOS();
+  const { t } = useTranslation();
 
   const handleComplete = useCallback(async () => {
     // Get stored data
@@ -73,10 +75,10 @@ export function OnboardingStep3({ onNavigate }: OnboardingStep3Props) {
       <div className="w-full max-w-4xl">
         <div className="text-center mb-8">
           <h2 className="text-3xl font-semibold text-zinc-100 tracking-tight mb-2">
-            Give it a try
+            {t.onboarding.finish.title}
           </h2>
           <p className="text-zinc-500 text-base">
-            Press the shortcut below to finish setup and open the assistant.
+            {t.onboarding.finish.subtitle}
           </p>
         </div>
 

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { usePromptOS } from '../../contexts/PromptOSContext';
 import { useWindowEvents } from '../../hooks/useWindowEvents';
+import { useTranslation } from '../../hooks/useTranslation';
 import { Button } from '@/components/ui/button';
 
 
@@ -24,6 +25,7 @@ const StopIcon = (
 
 export function OverlayWindow() {
   const promptOS = usePromptOS();
+  const { t } = useTranslation();
   const [prompt, setPrompt] = useState('');
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
@@ -116,7 +118,7 @@ export function OverlayWindow() {
           includeScreenshot = contextCheck.needsContext;
           if (includeScreenshot) {
             console.log('[Overlay] Including screenshot (source:', contextCheck.source, ')');
-            setRetryStatus('Capturing context...');
+            setRetryStatus('Reading your screen...');
           }
         } catch {
           // Context check failed, continue without screenshot
@@ -238,7 +240,7 @@ export function OverlayWindow() {
                 onClick={handleRefine}
                 className="text-[13px] text-gray-400 px-2.5 py-1.5 rounded-xl hover:text-gray-200 active:scale-95"
               >
-                Refine
+                {t.overlay.refine}
               </Button>
               <Button
                 variant="ghost"
@@ -246,7 +248,7 @@ export function OverlayWindow() {
                 onClick={handleInsert}
                 className="bg-[#FF6B00] hover:bg-[#ff8533] text-white rounded-xl px-3.5 py-1.5 text-[13px] font-medium active:scale-95"
               >
-                Insert
+                {t.overlay.insert}
               </Button>
             </div>
           </div>
@@ -287,7 +289,7 @@ export function OverlayWindow() {
                   onClick={() => promptOS.openSystemSettings('screen-recording')}
                   className="text-[12px] text-[#FF6B00] hover:text-[#ff8533] transition-colors"
                 >
-                  Open System Settings →
+                  {t.overlay.screen_permission.button}
                 </button>
               </div>
               <button
@@ -413,7 +415,7 @@ export function OverlayWindow() {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={retryStatus || "Ask AI..."}
+          placeholder={retryStatus || t.overlay.placeholder}
           autoComplete="off"
           spellCheck={false}
           style={{ resize: 'none', overflow: 'hidden', lineHeight: '1.5rem', height: '3rem' }}

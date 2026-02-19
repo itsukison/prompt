@@ -68,6 +68,10 @@ contextBridge.exposeInMainWorld('promptOS', {
     profile: {
         get: () => ipcRenderer.invoke('profile:get'),
         update: (updates) => ipcRenderer.invoke('profile:update', updates),
+        onLanguageChanged: (callback) => {
+            ipcRenderer.on('language-changed', (_, lang) => callback(lang));
+            return () => ipcRenderer.removeListener('language-changed', callback);
+        },
     },
 
     // =========================================================================

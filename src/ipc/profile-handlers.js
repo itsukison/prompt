@@ -34,7 +34,20 @@ function setupProfileHandlers({ supabase, getAppState, transitionToOverlayMode }
                 .single();
 
             if (error) return fail(error.message);
-            getAppState().currentUserProfile = data;
+
+            const state = getAppState();
+            state.currentUserProfile = data;
+
+            // Broadcast language change if applicable
+            if (updates.language) {
+                if (state.mainWindow) {
+                    state.mainWindow.webContents.send('language-changed', updates.language);
+                }
+                if (state.overlayWindow) {
+                    state.overlayWindow.webContents.send('language-changed', updates.language);
+                }
+            }
+
             return ok({ profile: data });
         } catch (err) {
             return fail(err.message);

@@ -14,6 +14,7 @@ export interface ProfileData {
   screenshot_enabled?: boolean;
   selected_model?: string;
   thinking_enabled?: boolean;
+  language?: string;
 }
 
 export function useProfile() {
@@ -27,6 +28,7 @@ export function useProfile() {
   const [customStyleInput, setCustomStyleInput] = useState('');
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
+  const [language, setLanguage] = useState('en');
 
   useEffect(() => {
     let cancelled = false;
@@ -41,6 +43,10 @@ export function useProfile() {
           setCustomStyleInput(p.writing_style_guide || '');
           setSelectedModel(p.selected_model || 'gemini-2.5-flash');
           setThinkingEnabled(p.thinking_enabled || false);
+          setThinkingEnabled(p.thinking_enabled || false);
+          const lang = p.language || 'en';
+          setLanguage(lang);
+          localStorage.setItem('app_language', lang);
         }
         const sessionResult = await promptOS.auth.getSession();
         if (!cancelled && sessionResult.success && sessionResult.session) {
@@ -107,6 +113,15 @@ export function useProfile() {
     } catch { console.error('Failed to update thinking setting'); }
   }, [promptOS]);
 
+  const handleLanguageSelect = useCallback(async (lang: string) => {
+    setLanguage(lang);
+    localStorage.setItem('app_language', lang);
+    try {
+      const result = await promptOS.profile.update({ language: lang });
+      if (result.success) setProfile(result.profile);
+    } catch { console.error('Failed to update language'); }
+  }, [promptOS]);
+
   const handleLogout = useCallback(async () => {
     try { await promptOS.auth.signOut(); }
     catch { alert('Failed to log out'); }
@@ -116,8 +131,8 @@ export function useProfile() {
     profile, setProfile, userEmail, isLoading,
     isEditingName, setIsEditingName, editedName, setEditedName,
     selectedStyle, customStyleInput, setCustomStyleInput,
-    selectedModel, thinkingEnabled,
+    selectedModel, thinkingEnabled, language,
     handleSaveName, handleStyleSelect, handleSaveCustomStyle,
-    handleScreenshotToggle, handleModelSelect, handleThinkingToggle, handleLogout,
+    handleScreenshotToggle, handleModelSelect, handleThinkingToggle, handleLanguageSelect, handleLogout,
   };
 }
