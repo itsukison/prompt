@@ -8,6 +8,7 @@ require('dotenv').config({
 
 const { createSupabaseClient } = require('./supabase');
 const { initGemini } = require('./services/gemini-service');
+const { initGrok } = require('./services/grok-service');
 const { loadUserProfile } = require('./services/auth-service');
 const { analyzeSessionForFacts } = require('./services/memory-service');
 const { getFrontmostApp, getSelectedText, getBrowserContext } = require('./services/focus-service');
@@ -23,6 +24,7 @@ const { IS_MAC } = require('./utils/platform');
 let overlayWindow = null;
 let mainWindow = null;
 let genAI = null;
+let grokAI = null;
 let supabase = null;
 let chatSessionRef = { current: null }; // Mutable ref passed to gemini-service
 let previousApp = null;
@@ -41,6 +43,8 @@ const appState = {
     get mainWindow() { return mainWindow; },
     get genAI() { return genAI; },
     set genAI(v) { genAI = v; },
+    get grokAI() { return grokAI; },
+    set grokAI(v) { grokAI = v; },
     get supabase() { return supabase; },
     get chatSessionRef() { return chatSessionRef; },
     get previousApp() { return previousApp; },
@@ -61,6 +65,7 @@ function getAppState() { return appState; }
 async function transitionToOverlayMode() {
     if (mainWindow) { mainWindow.close(); mainWindow = null; }
     if (!genAI) genAI = initGemini();
+    if (!grokAI) grokAI = initGrok();
 
     overlayWindow = createOverlayWindow();
     registerShortcuts({
@@ -159,6 +164,7 @@ app.whenReady().then(async () => {
             if (profile?.onboarding_completed) {
                 currentUserProfile = profile;
                 genAI = initGemini();
+                grokAI = initGrok();
                 overlayWindow = createOverlayWindow();
                 registerShortcuts({
                     onToggleOverlay: toggleOverlay,

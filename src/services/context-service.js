@@ -156,4 +156,73 @@ async function captureScreenshot(desktopCapturer, previousApp) {
     }
 }
 
-module.exports = { checkContextNeed, checkContextWithLLM, captureScreenshot };
+/**
+ * Analyze a screenshot to determine content type and whether a reply target exists.
+ * Uses gemini-2.5-flash-lite for a cheap pre-processing step before the main model.
+ * @param {GoogleGenerativeAI} genAI
+ * @param {string} screenshotDataUrl
+ * @returns {Promise<object>} Analysis result with content_type, has_reply_target, reply_to_content, sender, language, summary, clarification_needed, clarification_message
+ */
+async function analyzeScreenshot(genAI, screenshotDataUrl) {
+    const analyzerPrompt = `Analyze this screenshot and respond with a single JSON object. No other text — only the JSON.
+
+Schema:
+{
+  "content_type": "<one of: chat_message | email | delivery_notification | document | app_ui | unknown>",
+  "platform": "<one of: gmail | outlook | apple_mail | slack | discord | line | teams | whatsapp | imessage | twitter | instagram | linkedin | unknown>",
+  "has_reply_target": <true if there is a specific message or email addressed TO the user that they could meaningfully reply to; false otherwise>,
+  "sender": "<name or handle of the person who wrote the message TO the user — in email this is the FROM field; null if not visible>",
+  "reply_to_content": "<the actual text of the message body — faithful verbatim or very close paraphrase. Include the sender's specific points, proposals, questions, context, and tone. This will be read by another AI to draft a reply, so include everything meaningful>",
+  "language": "<ISO 639-1 code of the language used in the message content; null if undetermined>",
+  "summary": "<one sentence describing what is visible on screen>",
+  "clarification_needed": <true if no clear reply target exists; false if has_reply_target is true>,
+  "clarification_message": "<if clarification_needed: short natural sentence telling user what you see and asking what they want to write; null if not needed>"
+}
+
+Rules:
+1. SENDER — The sender is the person who wrote the message TO the user, shown in the FROM field of emails or the name above a chat bubble. The currently logged-in user (whose name or email address may appear in the To/Cc field, the window title bar, or the browser tab) is NEVER the sender. Window title email addresses belong to the logged-in user — ignore them for sender identification.
+
+2. REPLY_TO_CONTENT — Extract the actual message body text written by the sender. Be thorough: include specific questions asked, proposals made, context given, relationship cues (e.g. mutual contacts mentioned), and the sender's apparent intent and tone. Do NOT include: Gmail smart-reply chips (short clickable phrases like "Yes, interested", "No thanks", "Sounds good"), action buttons, navigation labels, UI chrome, or any text that is not part of the written message itself.
+
+3. PLATFORM — Identify from window title, tab text, app chrome, or UI patterns. Gmail shows "- Gmail" in the window title and the user's email address. Apple Mail has a three-pane layout with a toolbar. Slack has a channel list sidebar with hash icons. LINE has a contacts list on the left with green branding.
+
+4. SIDEBAR APPS — For Slack, Discord, LINE, Teams, Mail, Outlook: focus exclusively on the largest or rightmost content panel (the active thread). The sidebar listing contacts or channels is NOT the target.
+
+5. HAS_REPLY_TARGET — Set to false for: package tracking, delivery notifications, promotional emails with no personal message, system dialogs, error messages, settings screens, or anything not addressed personally to the user.
+
+6. Respond with valid JSON only. Do not wrap in markdown code fences.`;
+
+    try {
+        if (!screenshotDataUrl.startsWith('data:image/')) throw new Error('Invalid screenshot data URL format');
+        const commaIndex = screenshotDataUrl.indexOf(',');
+        if (commaIndex === -1) throw new Error('Invalid screenshot data URL format');
+        const mimeType = screenshotDataUrl.substring(0, commaIndex).match(/data:(image\/[^;]+)/)?.[1] || 'image/png';
+        const base64Data = screenshotDataUrl.substring(commaIndex + 1);
+
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+        const result = await model.generateContent([
+            { inlineData: { mimeType, data: base64Data } },
+            { text: analyzerPrompt }
+        ]);
+
+        let responseText = result.response.text().trim();
+        // Strip accidental markdown fences
+        responseText = responseText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+        return JSON.parse(responseText);
+    } catch (error) {
+        console.error('[Screenshot Analysis] Failed:', error.message);
+        return {
+            content_type: 'unknown',
+            platform: 'unknown',
+            has_reply_target: false,
+            sender: null,
+            reply_to_content: null,
+            language: null,
+            summary: 'Screenshot could not be analyzed.',
+            clarification_needed: true,
+            clarification_message: "I had trouble reading your screen. Could you describe what you'd like me to help with?"
+        };
+    }
+}
+
+module.exports = { checkContextNeed, checkContextWithLLM, captureScreenshot, analyzeScreenshot };

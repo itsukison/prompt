@@ -18,32 +18,62 @@ function setupGenerationHandlers({ desktopCapturer, getAppState }) {
         try {
             const state = getAppState();
             const { includeScreenshot } = options;
-            let screenshotDataUrl = null;
+
+            const modelId = state.currentUserProfile?.selected_model || 'gemini-2.5-flash';
+            const thinkingEnabled = state.currentUserProfile?.thinking_enabled || false;
+            const isGrok = modelId.startsWith('grok-');
+
+            let screenshotContext = null;
 
             if (includeScreenshot) {
                 console.log('[IPC] Screenshot requested, capturing...');
-                const { captureScreenshot } = require('../services/context-service');
+                const { captureScreenshot, analyzeScreenshot } = require('../services/context-service');
                 const screenshotResult = await captureScreenshot(desktopCapturer, state.previousApp);
                 if (screenshotResult && typeof screenshotResult === 'object' && screenshotResult.error) {
                     return { success: false, error: screenshotResult.error };
                 }
-                screenshotDataUrl = screenshotResult;
+                if (screenshotResult) {
+                    const analysis = await analyzeScreenshot(state.genAI, screenshotResult);
+                    console.log('[Screenshot Analysis]:', JSON.stringify(analysis, null, 2));
+                    if (analysis.clarification_needed) {
+                        return ok({ text: analysis.clarification_message });
+                    }
+                    screenshotContext = analysis;
+                }
             }
 
             if (signal.aborted) throw new Error('Aborted');
 
-            const { generateText } = require('../services/gemini-service');
-            const { text, usageMetadata } = await generateText(
-                state.genAI,
-                prompt,
-                state.currentUserProfile,
-                state.supabase,
-                screenshotDataUrl,
-                state.chatSessionRef,
-                state.overlayWindow,
-                signal,
-                state.previousBrowserContext
-            );
+            let text, usageMetadata;
+            if (isGrok) {
+                const { generateWithGrok } = require('../services/grok-service');
+                ({ text, usageMetadata } = await generateWithGrok(
+                    state.grokAI,
+                    prompt,
+                    state.currentUserProfile,
+                    state.supabase,
+                    screenshotContext,
+                    state.chatSessionRef,
+                    modelId,
+                    signal,
+                    state.previousBrowserContext
+                ));
+            } else {
+                const { generateText } = require('../services/gemini-service');
+                ({ text, usageMetadata } = await generateText(
+                    state.genAI,
+                    prompt,
+                    state.currentUserProfile,
+                    state.supabase,
+                    screenshotContext,
+                    state.chatSessionRef,
+                    state.overlayWindow,
+                    signal,
+                    state.previousBrowserContext,
+                    modelId,
+                    thinkingEnabled
+                ));
+            }
 
             // Track token usage
             if (state.isAuthenticated && state.currentUserProfile && state.supabase && usageMetadata) {
@@ -57,7 +87,7 @@ function setupGenerationHandlers({ desktopCapturer, getAppState }) {
                         prompt_text: prompt.substring(0, 500),
                         prompt_tokens: promptTokens,
                         completion_tokens: completionTokens,
-                        model: 'gemini-2.5-flash',
+                        model: modelId,
                     });
 
                     await state.supabase.from('user_profiles').update({

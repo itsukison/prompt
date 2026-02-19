@@ -29,8 +29,9 @@ export function SettingsPage() {
     profile, setProfile, userEmail, isLoading,
     isEditingName, setIsEditingName, editedName, setEditedName,
     selectedStyle, customStyleInput, setCustomStyleInput,
+    selectedModel, thinkingEnabled,
     handleSaveName, handleStyleSelect, handleSaveCustomStyle,
-    handleScreenshotToggle, handleLogout,
+    handleScreenshotToggle, handleModelSelect, handleThinkingToggle, handleLogout,
   } = useProfile();
 
   const {
@@ -118,24 +119,30 @@ export function SettingsPage() {
 
           <TabsContent value="general">
             <GeneralTab
-              displayName={profile?.display_name}
-              isEditingName={isEditingName}
-              editedName={editedName}
               selectedStyle={selectedStyle}
               customStyleInput={customStyleInput}
               screenshotEnabled={profile?.screenshot_enabled !== false}
-              onEditName={() => setIsEditingName(true)}
-              onSaveName={handleSaveName}
-              onEditedNameChange={setEditedName}
+              selectedModel={selectedModel}
+              thinkingEnabled={thinkingEnabled}
               onStyleSelect={handleStyleSelect}
               onCustomStyleChange={setCustomStyleInput}
               onSaveCustomStyle={handleSaveCustomStyle}
               onScreenshotToggle={handleScreenshotToggle}
+              onModelSelect={handleModelSelect}
+              onThinkingToggle={handleThinkingToggle}
             />
           </TabsContent>
 
           <TabsContent value="account">
-            <AccountTab userEmail={userEmail} />
+            <AccountTab
+              userEmail={userEmail}
+              displayName={profile?.display_name}
+              isEditingName={isEditingName}
+              editedName={editedName}
+              onEditName={() => setIsEditingName(true)}
+              onSaveName={handleSaveName}
+              onEditedNameChange={setEditedName}
+            />
           </TabsContent>
 
           <TabsContent value="memory">

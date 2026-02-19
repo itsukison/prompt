@@ -17,10 +17,10 @@ function createMainWindow(existingWindow) {
     }
 
     const mainWindow = new BrowserWindow({
-        width: 480,
-        height: 640,
-        minWidth: 400,
-        minHeight: 500,
+        width: 1000,
+        height: 700,
+        minWidth: 800,
+        minHeight: 600,
         frame: true,
         transparent: false,
         resizable: true,

@@ -40,7 +40,7 @@ async function analyzeSessionForFacts(genAI, supabase, userProfile, session) {
             .map((interaction, i) => `[${i + 1}] User: ${interaction.prompt}\nAssistant: ${interaction.response}`)
             .join('\n\n');
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite-preview-02-05' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
         const analysisPrompt = `Analyze this conversation and extract useful facts about the user that would help personalize future interactions.
 
 Conversation:

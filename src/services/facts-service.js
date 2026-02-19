@@ -168,7 +168,7 @@ function formatFactsForPrompt(facts) {
     if (!facts || facts.length === 0) return '';
 
     const factsList = facts.map(f => `- ${f.content}`).join('\n');
-    return `User background (reference only — inform your understanding of who the user is, but do not include these details in output unless the request explicitly calls for them):\n${factsList}`;
+    return `Identity facts (use ONLY for signing or closing a message e.g. "Best, [name]", or when the user explicitly asks to write about themselves. Never use these to shape the topic, scenario, or content of a response):\n${factsList}`;
 }
 
 /**
@@ -185,7 +185,7 @@ async function isDuplicateFact(genAI, newFact, existingFacts) {
     const prompt = `Existing facts:\n${existingList}\n\nNew fact: "${newFact}"\n\nDoes the new fact meaningfully duplicate or contradict any existing fact? Answer only YES or NO.`;
 
     try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite-preview-02-05' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
         const result = await model.generateContent(prompt);
         const answer = result.response.text().trim().toUpperCase();
         return answer.startsWith('YES');
@@ -207,7 +207,7 @@ async function summarizeFact(genAI, content) {
     }
 
     try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-lite-preview-02-05' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
         const prompt = `Summarize this personal fact in under 150 characters while preserving the key information. Return only the summary, nothing else.
 
 Fact: "${content}"

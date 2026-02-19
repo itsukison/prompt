@@ -12,6 +12,8 @@ export interface ProfileData {
   onboarding_completed: boolean;
   memory_enabled?: boolean;
   screenshot_enabled?: boolean;
+  selected_model?: string;
+  thinking_enabled?: boolean;
 }
 
 export function useProfile() {
@@ -23,6 +25,8 @@ export function useProfile() {
   const [editedName, setEditedName] = useState('');
   const [selectedStyle, setSelectedStyle] = useState('professional');
   const [customStyleInput, setCustomStyleInput] = useState('');
+  const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
+  const [thinkingEnabled, setThinkingEnabled] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,6 +39,8 @@ export function useProfile() {
           setEditedName(p.display_name || '');
           setSelectedStyle(p.writing_style || 'professional');
           setCustomStyleInput(p.writing_style_guide || '');
+          setSelectedModel(p.selected_model || 'gemini-2.5-flash');
+          setThinkingEnabled(p.thinking_enabled || false);
         }
         const sessionResult = await promptOS.auth.getSession();
         if (!cancelled && sessionResult.success && sessionResult.session) {
@@ -85,6 +91,22 @@ export function useProfile() {
     } catch { console.error('Failed to update screenshot setting'); }
   }, [promptOS]);
 
+  const handleModelSelect = useCallback(async (modelId: string) => {
+    setSelectedModel(modelId);
+    try {
+      const result = await promptOS.profile.update({ selected_model: modelId });
+      if (result.success) setProfile(result.profile);
+    } catch { console.error('Failed to update model selection'); }
+  }, [promptOS]);
+
+  const handleThinkingToggle = useCallback(async (enabled: boolean) => {
+    setThinkingEnabled(enabled);
+    try {
+      const result = await promptOS.profile.update({ thinking_enabled: enabled });
+      if (result.success) setProfile(result.profile);
+    } catch { console.error('Failed to update thinking setting'); }
+  }, [promptOS]);
+
   const handleLogout = useCallback(async () => {
     try { await promptOS.auth.signOut(); }
     catch { alert('Failed to log out'); }
@@ -94,7 +116,8 @@ export function useProfile() {
     profile, setProfile, userEmail, isLoading,
     isEditingName, setIsEditingName, editedName, setEditedName,
     selectedStyle, customStyleInput, setCustomStyleInput,
+    selectedModel, thinkingEnabled,
     handleSaveName, handleStyleSelect, handleSaveCustomStyle,
-    handleScreenshotToggle, handleLogout,
+    handleScreenshotToggle, handleModelSelect, handleThinkingToggle, handleLogout,
   };
 }
