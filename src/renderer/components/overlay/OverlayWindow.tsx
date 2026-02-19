@@ -74,6 +74,19 @@ export function OverlayWindow() {
     }
   }, [promptOS]);
 
+  // Helper to format status message
+  const getStatusMessage = useCallback((status: string) => {
+    if (!status) return '';
+    if (status === 'STATUS:ANALYZING') return t.overlay.status.analyzing;
+    if (status === 'STATUS:WRITING') return t.overlay.status.writing;
+    if (status.startsWith('STATUS:SERVER_BUSY:')) {
+      const seconds = status.split(':')[2];
+      return t.overlay.status.server_busy.replace('{seconds}', seconds);
+    }
+    // Fallback for legacy messages or other errors
+    return status;
+  }, [t]);
+
   // Listen for context updates (Refine Selection Enhancement)
   useEffect(() => {
     // @ts-ignore
@@ -350,7 +363,7 @@ export function OverlayWindow() {
               zIndex: 10
             }}
           />
-          <span className="text-xs text-gray-300 italic relative z-20">{retryStatus}</span>
+          <span className="text-xs text-gray-300 italic relative z-20">{getStatusMessage(retryStatus)}</span>
         </div>
       )}
 
@@ -415,7 +428,7 @@ export function OverlayWindow() {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={retryStatus || t.overlay.placeholder}
+          placeholder={getStatusMessage(retryStatus) || t.overlay.placeholder}
           autoComplete="off"
           spellCheck={false}
           style={{ resize: 'none', overflow: 'hidden', lineHeight: '1.5rem', height: '3rem' }}

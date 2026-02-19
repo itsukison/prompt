@@ -192,5 +192,10 @@ export const en: Translation = {
             description: 'Enable promptOS in System Settings → Privacy & Security → Screen Recording',
             button: 'Open System Settings →',
         },
+        status: {
+            analyzing: 'Analyzing...',
+            writing: 'Writing...',
+            server_busy: 'Server busy, retrying in {seconds}s...',
+        },
     },
 };

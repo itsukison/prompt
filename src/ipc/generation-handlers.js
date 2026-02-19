@@ -33,14 +33,14 @@ function setupGenerationHandlers({ desktopCapturer, getAppState }) {
                     return { success: false, error: screenshotResult.error };
                 }
                 if (screenshotResult) {
-                    state.overlayWindow?.webContents.send('generation-status', 'Analyzing...');
+                    state.overlayWindow?.webContents.send('generation-status', 'STATUS:ANALYZING');
                     const analysis = await analyzeScreenshot(state.genAI, screenshotResult);
                     console.log('[Screenshot Analysis]:', JSON.stringify(analysis, null, 2));
                     if (analysis.clarification_needed) {
                         return ok({ text: analysis.clarification_message });
                     }
                     screenshotContext = analysis;
-                    state.overlayWindow?.webContents.send('generation-status', 'Writing...');
+                    state.overlayWindow?.webContents.send('generation-status', 'STATUS:WRITING');
                 }
             }
 

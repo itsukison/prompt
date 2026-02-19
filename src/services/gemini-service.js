@@ -54,7 +54,7 @@ async function generateWithRetry(operation, overlayWindow = null, retries = 3, s
                 }
                 console.warn(`[Gemini] Rate limit hit (Attempt ${attempt + 1}/${retries}). Retrying in ${waitTime}ms...`);
                 if (overlayWindow) {
-                    overlayWindow.webContents.send('generation-status', `Server busy, retrying in ${Math.ceil(waitTime / 1000)}s...`);
+                    overlayWindow.webContents.send('generation-status', `STATUS:SERVER_BUSY:${Math.ceil(waitTime / 1000)}`);
                 }
 
                 // Wait with abort check

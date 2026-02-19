@@ -135,5 +135,10 @@ export interface Translation {
             description: string;
             button: string;
         };
+        status: {
+            analyzing: string;
+            writing: string;
+            server_busy: string;
+        };
     };
 };

@@ -183,14 +183,19 @@ export const ja: Translation = {
         description: 'システム上のどこからでもこれらのショートカットを使用してPromptOSにアクセスできます。',
     },
     overlay: {
-        placeholder: 'AIに質問...',
-        refine: '洗練',
-        insert: '挿入',
-        context: 'コンテキスト',
+        placeholder: 'AIに依頼...',
+        refine: '調整',
+        insert: '反映',
         screen_permission: {
             title: '画面録画の許可が必要です',
             description: 'システム設定 → プライバシーとセキュリティ → 画面録画 でpromptOSを有効にしてください',
-            button: 'システム設定を開く →',
+            button: 'システム設定を開く',
+        },
+        context: 'コンテキスト',
+        status: {
+            analyzing: '分析中...',
+            writing: '執筆中...',
+            server_busy: 'サーバー混雑中、{seconds}秒後に再試行します...',
         },
     },
 };
