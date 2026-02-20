@@ -67,8 +67,8 @@ export function SettingsPage() {
 
       <aside className={`flex flex-col bg-claude-sidebar border-r border-zinc-800/50 pt-10 pb-4 h-full transition-all duration-300 ease-in-out ${sidebarCollapsed ? 'w-0 opacity-0 overflow-hidden' : 'w-[260px] opacity-100'}`}>
         <div className="px-5 mb-8 flex items-center justify-between">
-          <div className="flex items-center gap-3 overflow-hidden">
-            <img src="logo.png" alt="Logo" className="w-7 h-7 object-contain shrink-0" />
+          <div className="flex items-center gap-1 overflow-hidden">
+            <img src="white_logo.png" alt="Logo" className="w-7 h-7 object-contain shrink-0" />
             <span className="text-xl font-semibold tracking-tight text-zinc-100">PromptOS</span>
           </div>
           <Button variant="ghost" size="sm" onClick={handleSidebarToggle} className="text-zinc-500 hover:text-zinc-300 h-auto p-1">

@@ -70,7 +70,7 @@ export function AuthPage({ onNavigate }: AuthPageProps) {
       <div className="w-full max-w-[360px]">
         <div className="flex flex-col items-center mb-10">
           <div className="w-16 h-16 flex items-center justify-center mb-6">
-            <img src="logo.png" alt="Logo" className="w-full h-full object-contain" />
+            <img src="white_logo.png" alt="Logo" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-3xl font-semibold text-zinc-100 tracking-tight mb-3">
             {title}

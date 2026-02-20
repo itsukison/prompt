@@ -1,6 +1,6 @@
 appId: com.promptos.app
 productName: PromptOS
-icon: public/logo.png
+icon: public/app_logo.png
 directories:
   output: release
 

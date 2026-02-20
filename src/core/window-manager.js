@@ -2,7 +2,7 @@ const { BrowserWindow, app, screen } = require('electron');
 const path = require('path');
 const { IS_MAC } = require('../utils/platform');
 
-const ICON_PATH = path.join(__dirname, '..', '..', 'public', 'logo.png');
+const ICON_PATH = path.join(__dirname, '..', '..', 'public', 'app_logo.png');
 
 /**
  * Create or show the main settings/auth window
