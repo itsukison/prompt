@@ -144,6 +144,8 @@ export function OverlayWindow() {
 
       if (response.success && response.text) {
         setResult(response.text);
+      } else if (response.error === 'GENERATION_LIMIT_REACHED') {
+        setError('GENERATION_LIMIT_REACHED');
       } else if (response.error === 'screen_recording_permission') {
         setError('screen_recording_permission');
       } else if (response.error === 'Cancelled') {
@@ -270,7 +272,42 @@ export function OverlayWindow() {
 
       {/* Error Section - conditional render based on derived state */}
       {hasError && (
-        error === 'screen_recording_permission' ? (
+        error === 'GENERATION_LIMIT_REACHED' ? (
+          <div
+            className="mb-3 p-3 px-4 rounded-xl animate-slide-up w-[92%] grainy-texture"
+            style={{
+              background: '#151516',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+              position: 'relative',
+            }}
+          >
+            <div
+              className="absolute inset-0 rounded-xl pointer-events-none"
+              style={{
+                padding: '1px',
+                background: 'linear-gradient(155deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 25%, rgba(255,255,255,0) 75%, rgba(255,255,255,0.4) 100%)',
+                mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                maskComposite: 'exclude',
+                WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                WebkitMaskComposite: 'xor',
+                zIndex: 10,
+              }}
+            />
+            <div className="flex items-center justify-between relative z-20">
+              <span className="text-[12px] text-zinc-400">Monthly limit reached</span>
+              <button
+                onClick={() => {
+                  setError('');
+                  promptOS.dismiss();
+                  promptOS.openBilling();
+                }}
+                className="text-[12px] text-[#FF6B00] hover:text-[#ff8533] transition-colors ml-3"
+              >
+                Upgrade →
+              </button>
+            </div>
+          </div>
+        ) : error === 'screen_recording_permission' ? (
           <div
             className="mb-3 p-4 rounded-[20px] animate-slide-up w-[92%] grainy-texture"
             style={{

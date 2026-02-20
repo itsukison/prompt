@@ -184,7 +184,7 @@ function ReadyView({ version, onInstall, onDismiss }: ReadyViewProps) {
       <div className="mt-4 flex items-center gap-2">
         <button
           onClick={onInstall}
-          className="flex-1 h-8 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-xs font-medium text-zinc-100 transition-colors duration-150"
+          className="flex-1 h-8 rounded-lg bg-orange-500 hover:bg-orange-600 text-xs font-medium text-white transition-colors duration-150"
         >
           Restart &amp; Update
         </button>

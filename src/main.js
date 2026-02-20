@@ -150,6 +150,23 @@ function openSettings() {
     }
 }
 
+function openSettingsBilling() {
+    if (!mainWindow) {
+        mainWindow = createMainWindow(null);
+        mainWindow.on('closed', () => { mainWindow = null; });
+        mainWindow.webContents.on('did-finish-load', () => {
+            mainWindow.webContents.send('navigate', 'settings');
+            mainWindow.webContents.send('navigate-to-billing');
+            flushPendingUpdate(mainWindow);
+        });
+    } else {
+        mainWindow.show();
+        mainWindow.focus();
+        mainWindow.webContents.send('navigate', 'settings');
+        mainWindow.webContents.send('navigate-to-billing');
+    }
+}
+
 // =============================================================================
 // App Lifecycle
 // =============================================================================
@@ -164,7 +181,7 @@ app.whenReady().then(async () => {
         mainWindow = createMainWindow(null);
         mainWindow.on('closed', () => { mainWindow = null; });
         mainWindow.webContents.on('did-finish-load', () => flushPendingUpdate(mainWindow));
-        setupIPC({ desktopCapturer, supabase, getAppState, transitionToOverlayMode, transitionToAuthMode });
+        setupIPC({ desktopCapturer, supabase, getAppState, transitionToOverlayMode, transitionToAuthMode, openSettings, openSettingsBilling });
         if (app.isPackaged) initUpdater(getAppState);
         return;
     }
@@ -187,7 +204,8 @@ app.whenReady().then(async () => {
                 });
                 isAuthenticated = true;
                 if (IS_MAC) app.dock?.show?.();
-                console.log('[App] Restored session, overlay mode active. Press Cmd+/ to open.');
+                openSettings(); // Open settings window on launch
+                console.log('[App] Restored session, settings window opened.');
             } else {
                 currentUserProfile = profile;
                 mainWindow = createMainWindow(null);
@@ -209,7 +227,7 @@ app.whenReady().then(async () => {
         mainWindow.webContents.on('did-finish-load', () => flushPendingUpdate(mainWindow));
     }
 
-    setupIPC({ desktopCapturer, supabase, getAppState, transitionToOverlayMode, transitionToAuthMode });
+    setupIPC({ desktopCapturer, supabase, getAppState, transitionToOverlayMode, transitionToAuthMode, openSettings, openSettingsBilling });
     if (app.isPackaged) initUpdater(getAppState);
 
     // Warm up screen recording API to avoid false permission errors on first real use

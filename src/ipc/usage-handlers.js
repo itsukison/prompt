@@ -12,7 +12,7 @@ function setupUsageHandlers({ supabase }) {
 
             const { data, error } = await supabase
                 .from('user_profiles')
-                .select('tokens_used, tokens_remaining, subscription_tier')
+                .select('tokens_used, tokens_remaining, subscription_tier, generations_used, generations_limit, subscription_status, subscription_interval, cancel_at_period_end, current_period_end')
                 .eq('id', user.id)
                 .single();
 

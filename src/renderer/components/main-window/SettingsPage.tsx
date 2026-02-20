@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Menu, PanelLeftClose, Settings, User, CreditCard, LogOut, Keyboard, Brain } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,16 @@ export function SettingsPage() {
     isAddingLoading, addMemoryError,
     handleMemoryToggle, handleMemoryEdit, handleMemoryDelete, handleMemoryAdd,
   } = useMemory(activeTab, profile?.memory_enabled);
+
+  // Navigate to billing tab when triggered from overlay "Upgrade →"
+  useEffect(() => {
+    // @ts-ignore
+    if (!window.promptOS?.onNavigateToBilling) return;
+    // @ts-ignore
+    return window.promptOS.onNavigateToBilling(() => {
+      setActiveTab('billing');
+    });
+  }, []);
 
   const handleSidebarToggle = useCallback(() => {
     setSidebarCollapsed(prev => {
@@ -93,7 +103,7 @@ export function SettingsPage() {
               <div className="overflow-hidden">
                 <p className="text-sm font-medium truncate text-zinc-200">{profile?.display_name || 'User Name'}</p>
                 <p className="text-[10px] text-zinc-500 truncate uppercase tracking-wider">
-                  {profile?.subscription_tier === 'pro' ? 'Pro Plan' : 'Free Plan'}
+                  {profile?.subscription_tier === 'pro' ? 'Pro Plan' : profile?.subscription_tier === 'power' ? 'Power Plan' : 'Free Plan'}
                 </p>
               </div>
             </div>
@@ -149,6 +159,8 @@ export function SettingsPage() {
               stats={stats}
               isAtCapacity={isAtCapacity}
               memoryEnabled={memoryEnabled}
+              subscriptionTier={profile?.subscription_tier ?? 'free'}
+              subscriptionStatus={profile?.subscription_status ?? 'free'}
               editingMemoryId={editingMemoryId}
               editingMemoryContent={editingMemoryContent}
               isAddingMemory={isAddingMemory}
@@ -163,6 +175,7 @@ export function SettingsPage() {
               onSetIsAddingMemory={setIsAddingMemory}
               onSetNewMemoryContent={setNewMemoryContent}
               onMemoryAdd={handleMemoryAdd}
+              onNavigateToBilling={() => setActiveTab('billing')}
             />
           </TabsContent>
 

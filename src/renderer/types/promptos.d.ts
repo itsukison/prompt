@@ -93,8 +93,16 @@ export interface PromptOSAPI {
     toggle: (enabled: boolean) => Promise<any>;
     getStats: () => Promise<any>;
   };
+  billing: {
+    createCheckout: (priceId: string) => Promise<{ success: boolean; url?: string; error?: string }>;
+    createPortal: () => Promise<{ success: boolean; url?: string; error?: string }>;
+  };
+
   onNavigate: (callback: (route: string) => void) => () => void;
   openSystemSettings: (pane: 'screen-recording') => Promise<void>;
+  openSettings: () => Promise<void>;
+  openBilling: () => Promise<void>;
+  onNavigateToBilling: (callback: () => void) => () => void;
 
   update: {
     onAvailable: (callback: (info: UpdateInfo) => void) => () => void;

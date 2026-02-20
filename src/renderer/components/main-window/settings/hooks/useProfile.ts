@@ -15,6 +15,13 @@ export interface ProfileData {
   selected_model?: string;
   thinking_enabled?: boolean;
   language?: string;
+  // Billing fields
+  generations_used: number;
+  generations_limit: number;
+  subscription_status: string;
+  subscription_interval?: string;
+  cancel_at_period_end?: boolean;
+  current_period_end?: string;
 }
 
 export function useProfile() {

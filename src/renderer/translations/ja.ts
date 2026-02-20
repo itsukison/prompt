@@ -155,6 +155,42 @@ export const ja: Translation = {
         },
     },
     billing: {
+        plans: {
+            free: 'フリー',
+            pro: 'プロ',
+            power: 'パワー',
+            features: {
+                free: ['月100回の生成', '全AIモデル', 'オーバーレイ執筆アシスタント'],
+                pro: ['月1,000回の生成', '全AIモデル', 'オーバーレイ執筆アシスタント', '記憶機能（パーソナルな事実）'],
+                power: ['月10,000回の生成', '全AIモデル', 'オーバーレイ執筆アシスタント', '記憶機能（パーソナルな事実）', '優先サポート'],
+            }
+        },
+        actions: {
+            upgrade_to: '{plan}にアップグレード',
+            switch_to: '{plan}に切り替え',
+            cancel_subscription: 'サブスクリプションをキャンセル',
+            opening_checkout: '決済ページを開いています…',
+            opening_portal: 'ポータルを開いています…',
+        },
+        interval: {
+            monthly: '月額',
+            annual: '年額',
+            billed_monthly: '月額払い',
+            billed_annually: '年額払い',
+            billed_annually_total: '年額{price}払い',
+        },
+        notices: {
+            checking: '確認中…',
+            current: '現在のプラン',
+            cancelling: 'キャンセル手続き中',
+            renews: '更新日: {date}',
+            resets_on_1st: '毎月1日にリセットされます',
+            resets_on_date: 'リセット日: {date}',
+            access_until: '⚠ {date}までアクセス可能 — プランは更新されません',
+            take_effect_at_period_end: '変更は期間終了時に請求ポータルを通じて適用されます',
+            subscription_cancelled: '⚠ サブスクリプションはキャンセルされました — プランは更新されません',
+            subscription_ending_on: 'サブスクリプション終了日: {date}',
+        },
         current_plan: {
             title: '現在のプラン',
             free: 'フリープラン',
@@ -168,9 +204,10 @@ export const ja: Translation = {
         },
         usage: {
             title: '現在の使用状況',
+            generations: '生成回数',
             tokens: {
                 label: '月間トークン',
-                reset: '14日後にリセット',
+                reset: '次期にリセット',
             },
             fast_requests: {
                 label: '高速リクエスト',

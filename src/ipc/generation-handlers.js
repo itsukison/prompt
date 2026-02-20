@@ -19,6 +19,12 @@ function setupGenerationHandlers({ desktopCapturer, getAppState }) {
             const state = getAppState();
             const { includeScreenshot } = options;
 
+            // Enforce generation limit
+            const profile = state.currentUserProfile;
+            if (profile && profile.generations_used >= profile.generations_limit) {
+                return { success: false, error: 'GENERATION_LIMIT_REACHED' };
+            }
+
             const modelId = state.currentUserProfile?.selected_model || 'gemini-2.5-flash';
             const thinkingEnabled = state.currentUserProfile?.thinking_enabled || false;
             const isGrok = modelId.startsWith('grok-');
@@ -95,12 +101,14 @@ function setupGenerationHandlers({ desktopCapturer, getAppState }) {
                     await state.supabase.from('user_profiles').update({
                         tokens_used: state.currentUserProfile.tokens_used + totalTokens,
                         tokens_remaining: Math.max(0, state.currentUserProfile.tokens_remaining - totalTokens),
+                        generations_used: (state.currentUserProfile.generations_used || 0) + 1,
                         updated_at: new Date().toISOString(),
                     }).eq('id', state.currentUserProfile.id);
 
                     // Mutate through the proxy getter — direct property mutation works since it's the same object reference
                     state.currentUserProfile.tokens_used += totalTokens;
                     state.currentUserProfile.tokens_remaining = Math.max(0, state.currentUserProfile.tokens_remaining - totalTokens);
+                    state.currentUserProfile.generations_used = (state.currentUserProfile.generations_used || 0) + 1;
                 } catch (err) {
                     console.error('[Token Tracking] Failed to track usage:', err.message);
                 }

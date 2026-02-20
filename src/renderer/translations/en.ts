@@ -155,6 +155,42 @@ export const en: Translation = {
         },
     },
     billing: {
+        plans: {
+            free: 'Free',
+            pro: 'Pro',
+            power: 'Power',
+            features: {
+                free: ['100 generations/month', 'All AI models', 'Overlay writing assistant'],
+                pro: ['1,000 generations/month', 'All AI models', 'Overlay writing assistant', 'Memory (personal facts)'],
+                power: ['10,000 generations/month', 'All AI models', 'Overlay writing assistant', 'Memory (personal facts)', 'Priority support'],
+            }
+        },
+        actions: {
+            upgrade_to: 'Upgrade to {plan}',
+            switch_to: 'Switch to {plan}',
+            cancel_subscription: 'Cancel subscription',
+            opening_checkout: 'Opening checkout…',
+            opening_portal: 'Opening portal…',
+        },
+        interval: {
+            monthly: 'Monthly',
+            annual: 'Annual',
+            billed_monthly: 'Billed monthly',
+            billed_annually: 'Billed annually',
+            billed_annually_total: 'Billed {price} annually',
+        },
+        notices: {
+            checking: 'checking…',
+            current: 'Current',
+            cancelling: 'Cancelling',
+            renews: 'Renews {date}',
+            resets_on_1st: 'Resets on the 1st of each month',
+            resets_on_date: 'Resets on {date}',
+            access_until: '⚠ Access until {date} — your plan won\'t renew',
+            take_effect_at_period_end: 'Changes take effect at period end via the billing portal',
+            subscription_cancelled: '⚠ Subscription cancelled — your plan won\'t renew',
+            subscription_ending_on: 'Subscription ending on {date}',
+        },
         current_plan: {
             title: 'Current Plan',
             free: 'Free Plan',
@@ -168,9 +204,10 @@ export const en: Translation = {
         },
         usage: {
             title: 'Current Usage',
+            generations: 'Generations',
             tokens: {
                 label: 'Monthly Tokens',
-                reset: 'Resets in 14 days',
+                reset: 'Resets next period',
             },
             fast_requests: {
                 label: 'Fast Requests',

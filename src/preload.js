@@ -118,6 +118,15 @@ contextBridge.exposeInMainWorld('promptOS', {
     },
 
     // =========================================================================
+    // Billing Functions
+    // =========================================================================
+
+    billing: {
+        createCheckout: (priceId) => ipcRenderer.invoke('billing:create-checkout', { priceId }),
+        createPortal: () => ipcRenderer.invoke('billing:create-portal'),
+    },
+
+    // =========================================================================
     // Navigation (for main window routing)
     // =========================================================================
 
@@ -127,6 +136,15 @@ contextBridge.exposeInMainWorld('promptOS', {
     },
 
     openSystemSettings: (pane) => ipcRenderer.invoke('open-system-settings', pane),
+
+    openSettings: () => ipcRenderer.invoke('open-settings-window'),
+
+    openBilling: () => ipcRenderer.invoke('open-billing-settings'),
+
+    onNavigateToBilling: (callback) => {
+        ipcRenderer.on('navigate-to-billing', callback);
+        return () => ipcRenderer.removeListener('navigate-to-billing', callback);
+    },
 
     // =========================================================================
     // Auto-update

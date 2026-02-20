@@ -113,10 +113,47 @@ export interface Translation {
         };
     };
     billing: {
+        plans: {
+            free: string;
+            pro: string;
+            power: string;
+            features: {
+                free: string[];
+                pro: string[];
+                power: string[];
+            }
+        };
+        actions: {
+            upgrade_to: string;
+            switch_to: string;
+            cancel_subscription: string;
+            opening_checkout: string;
+            opening_portal: string;
+        };
+        interval: {
+            monthly: string;
+            annual: string;
+            billed_monthly: string;
+            billed_annually: string;
+            billed_annually_total: string;
+        };
+        notices: {
+            checking: string;
+            current: string;
+            cancelling: string;
+            renews: string;
+            resets_on_1st: string;
+            resets_on_date: string;
+            access_until: string;
+            take_effect_at_period_end: string;
+            subscription_cancelled: string;
+            subscription_ending_on: string;
+        };
         current_plan: { title: string; free: string; pro: string; current_badge: string; upgrade_button: string; };
         benefits: { title: string; features: string[]; };
         usage: {
             title: string;
+            generations: string;
             tokens: { label: string; reset: string; };
             fast_requests: { label: string; limit: string; };
         };

@@ -72,6 +72,15 @@ function setupMemoryHandlers({ supabase, getAppState }) {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return fail('Not authenticated');
 
+            // Gate: only Pro/Power with active subscription can enable memory
+            if (enabled) {
+                const profile = getAppState().currentUserProfile;
+                const hasAccess = profile
+                    && profile.subscription_tier !== 'free'
+                    && profile.subscription_status === 'active';
+                if (!hasAccess) return fail('MEMORY_REQUIRES_PRO');
+            }
+
             const { data, error } = await supabase
                 .from('user_profiles')
                 .update({ memory_enabled: enabled })
@@ -165,6 +174,15 @@ function setupMemoryHandlers({ supabase, getAppState }) {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return fail('Not authenticated');
+
+            if (enabled) {
+                const profile = getAppState().currentUserProfile;
+                const hasAccess = profile
+                    && profile.subscription_tier !== 'free'
+                    && profile.subscription_status === 'active';
+                if (!hasAccess) return fail('MEMORY_REQUIRES_PRO');
+            }
+
             const { data, error } = await supabase
                 .from('user_profiles')
                 .update({ memory_enabled: enabled })

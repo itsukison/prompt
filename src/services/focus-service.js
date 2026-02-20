@@ -154,7 +154,7 @@ async function getSelectedText(clipboard) {
 
     await new Promise(resolve => setTimeout(resolve, 100));
     const selectedText = clipboard.readText();
-    console.log(`[Selection] Captured: "${selectedText.substring(0, 20)}..."`);
+    console.log(`[Selection] Captured ${selectedText.length} chars`);
 
     clipboard.writeText(originalClipboard);
     return selectedText || '';

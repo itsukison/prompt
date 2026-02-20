@@ -4,6 +4,7 @@ const { setupProfileHandlers } = require('./profile-handlers');
 const { setupMemoryHandlers } = require('./memory-handlers');
 const { setupGenerationHandlers } = require('./generation-handlers');
 const { setupUsageHandlers } = require('./usage-handlers');
+const { setupBillingHandlers } = require('./billing-handlers');
 const { IS_MAC } = require('../utils/platform');
 const { ok, fail } = require('../utils/ipc-response');
 const { installUpdate } = require('../core/updater');
@@ -18,6 +19,7 @@ function setupIPC(deps) {
     setupProfileHandlers(deps);
     setupMemoryHandlers(deps);
     setupUsageHandlers(deps);
+    setupBillingHandlers(deps);
 
     // Insert text: copy to clipboard, restore focus, paste
     ipcMain.handle('insert-text', async (event, text) => {
@@ -53,6 +55,17 @@ function setupIPC(deps) {
             console.error('Insert error:', error);
             return fail(error.message);
         }
+    });
+
+    // Open main settings window (used from overlay)
+    ipcMain.handle('open-settings-window', async () => {
+        if (deps.openSettings) deps.openSettings();
+    });
+
+    // Open main settings window directly on the Billing tab
+    ipcMain.handle('open-billing-settings', async () => {
+        if (deps.openSettingsBilling) deps.openSettingsBilling();
+        else if (deps.openSettings) deps.openSettings();
     });
 
     // Open macOS System Settings pane

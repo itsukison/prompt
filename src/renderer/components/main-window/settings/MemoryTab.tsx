@@ -10,6 +10,8 @@ interface MemoryTabProps {
   stats: FactsStats | null;
   isAtCapacity: boolean;
   memoryEnabled: boolean;
+  subscriptionTier: string;
+  subscriptionStatus: string;
   editingMemoryId: string | null;
   editingMemoryContent: string;
   isAddingMemory: boolean;
@@ -24,17 +26,21 @@ interface MemoryTabProps {
   onSetIsAddingMemory: (v: boolean) => void;
   onSetNewMemoryContent: (v: string) => void;
   onMemoryAdd: () => void;
+  onNavigateToBilling: () => void;
 }
 
 export function MemoryTab({
   facts, stats, isAtCapacity, memoryEnabled,
+  subscriptionTier, subscriptionStatus,
   editingMemoryId, editingMemoryContent, isAddingMemory,
   newMemoryContent, isAddingLoading, addMemoryError,
   onMemoryToggle, onSetEditingMemoryId, onSetEditingMemoryContent,
   onMemoryEdit, onMemoryDelete, onSetIsAddingMemory,
-  onSetNewMemoryContent, onMemoryAdd,
+  onSetNewMemoryContent, onMemoryAdd, onNavigateToBilling,
 }: MemoryTabProps) {
   const { t } = useTranslation();
+  const hasPro = subscriptionTier !== 'free' && subscriptionStatus === 'active';
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Memory Toggle */}
@@ -44,12 +50,24 @@ export function MemoryTab({
           <div className="space-y-0.5">
             <h3 className="text-sm font-medium text-zinc-200">{t.memory.enable.subtitle}</h3>
             <p className="text-xs text-zinc-500">{t.memory.enable.description}</p>
+            {!hasPro && (
+              <p className="text-xs text-zinc-600 mt-0.5">
+                Pro feature —{' '}
+                <button
+                  onClick={onNavigateToBilling}
+                  className="text-zinc-500 hover:text-zinc-300 underline underline-offset-2 transition-colors"
+                >
+                  upgrade to unlock
+                </button>
+              </p>
+            )}
           </div>
-          <label className="relative inline-flex items-center cursor-pointer">
+          <label className={`relative inline-flex items-center ${hasPro ? 'cursor-pointer' : 'cursor-not-allowed opacity-40'}`}>
             <input
               type="checkbox"
               checked={memoryEnabled}
-              onChange={(e) => onMemoryToggle(e.target.checked)}
+              onChange={(e) => hasPro && onMemoryToggle(e.target.checked)}
+              disabled={!hasPro}
               className="sr-only peer"
             />
             <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500" />
