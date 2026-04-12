@@ -218,6 +218,38 @@ export const en: Translation = {
     shortcuts: {
         title: 'Keyboard Shortcuts',
         description: 'Use these shortcuts anywhere in your system to quickly access PromptOS.',
+        cards: {
+            toggle: {
+                title: 'Toggle AI Assistant',
+                description: 'Open/close overlay (captures selected text when opening)',
+            },
+            context: {
+                title: 'Update Context',
+                description: 'Capture newly selected text when overlay is open',
+            },
+            settings: {
+                title: 'Open Settings',
+                description: 'Manage your preferences',
+            },
+        },
+        tips: {
+            title: 'Usage Tips',
+            quick_refine: {
+                label: 'Quick refine:',
+                text_before: 'Highlight text first, then press ',
+                text_after: ' to open with context. Type "refine this" or "fix grammar".',
+            },
+            update_context: {
+                label: 'Update context:',
+                text_before: 'While overlay is open, select different text and press ',
+                text_after: ' to update the context without closing.',
+            },
+            clean_toggle: {
+                label: 'Clean toggle:',
+                text_before: 'Press ',
+                text_after: ' again to close the overlay - simple and predictable.',
+            },
+        },
     },
     overlay: {
         placeholder: 'Ask AI...',

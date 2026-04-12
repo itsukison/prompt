@@ -7,23 +7,11 @@ import { useTranslation } from '../../../hooks/useTranslation';
 const MODEL_OPTIONS = [
   {
     id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'Google',
-    description: 'Fast, efficient. Recommended for most tasks.'
+    description: 'Fast, efficient. Great for most everyday tasks.'
   },
   {
-    id: 'gemini-3.0-flash', label: 'Gemini 3.0 Flash', provider: 'Google',
-    description: 'Next-gen speed and quality.'
-  },
-  {
-    id: 'gemini-3.0-pro', label: 'Gemini 3.0 Pro', provider: 'Google',
-    description: 'Most capable Google model.'
-  },
-  {
-    id: 'grok-3', label: 'Grok 3', provider: 'xAI',
-    description: 'xAI\'s smart model. Text-only (no screenshots).'
-  },
-  {
-    id: 'grok-4-0709', label: 'Grok 4', provider: 'xAI',
-    description: 'xAI\'s best model. Supports screenshot context.'
+    id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', provider: 'Anthropic',
+    description: 'Highly capable. Excellent at nuanced writing and reasoning.'
   },
 ];
 

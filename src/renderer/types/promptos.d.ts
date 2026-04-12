@@ -45,6 +45,7 @@ export interface PromptOSAPI {
   cancelGeneration: () => Promise<void>;
   insert: (text: string) => Promise<{ success: boolean; error?: string }>;
   dismiss: () => void;
+  setIgnoreMouseEvents: (ignore: boolean) => void;
   setHeight: (height: number) => void;
   onWindowShown: (callback: (payload?: { selection?: string }) => void) => () => void;
   onWindowHidden: (callback: () => void) => () => void;

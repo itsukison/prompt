@@ -25,6 +25,9 @@ contextBridge.exposeInMainWorld('promptOS', {
     // Dismiss the overlay
     dismiss: () => ipcRenderer.send('dismiss'),
 
+    // Toggle mouse event pass-through for transparent areas
+    setIgnoreMouseEvents: (ignore) => ipcRenderer.send('set-ignore-mouse-events', ignore),
+
     // Set window height
     setHeight: (height) => ipcRenderer.send('set-height', height),
 

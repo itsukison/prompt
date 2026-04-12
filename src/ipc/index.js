@@ -83,6 +83,14 @@ function setupIPC(deps) {
         }
     });
 
+    // Toggle mouse-event pass-through for overlay transparent areas
+    ipcMain.on('set-ignore-mouse-events', (_, ignore) => {
+        const state = deps.getAppState();
+        if (state.overlayWindow) {
+            state.overlayWindow.setIgnoreMouseEvents(ignore, { forward: true });
+        }
+    });
+
     // Overlay dismiss
     ipcMain.on('dismiss', () => {
         const state = deps.getAppState();

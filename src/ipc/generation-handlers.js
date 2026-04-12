@@ -28,6 +28,7 @@ function setupGenerationHandlers({ desktopCapturer, getAppState }) {
             const modelId = state.currentUserProfile?.selected_model || 'gemini-2.5-flash';
             const thinkingEnabled = state.currentUserProfile?.thinking_enabled || false;
             const isGrok = modelId.startsWith('grok-');
+            const isClaude = modelId.startsWith('claude-');
 
             let screenshotContext = null;
 
@@ -63,6 +64,18 @@ function setupGenerationHandlers({ desktopCapturer, getAppState }) {
                     screenshotContext,
                     state.chatSessionRef,
                     modelId,
+                    signal,
+                    state.previousBrowserContext
+                ));
+            } else if (isClaude) {
+                const { generateWithClaude } = require('../services/claude-service');
+                ({ text, usageMetadata } = await generateWithClaude(
+                    state.claudeAI,
+                    prompt,
+                    state.currentUserProfile,
+                    state.supabase,
+                    screenshotContext,
+                    state.chatSessionRef,
                     signal,
                     state.previousBrowserContext
                 ));

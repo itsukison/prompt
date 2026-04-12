@@ -8,19 +8,25 @@ const OPEN_A_APPS = ['Google Chrome', 'Chrome', 'Brave Browser', 'Microsoft Edge
  * Get the name and front window title of the currently frontmost application.
  * @returns {{ appName: string|null, windowTitle: string|null }}
  */
-function getFrontmostApp() {
+function execAsync(cmd) {
+    return new Promise((resolve, reject) => {
+        exec(cmd, { encoding: 'utf-8', timeout: 3000 }, (error, stdout) => {
+            if (error) reject(error);
+            else resolve(stdout.trim());
+        });
+    });
+}
+
+async function getFrontmostApp() {
     if (IS_MAC) {
         try {
             const appScript = 'tell application "System Events" to get name of first process whose frontmost is true';
-            const appName = execSync(`osascript -e '${appScript}'`, { encoding: 'utf-8' }).trim();
+            const winScript = 'tell application "System Events" to get name of front window of (first process whose frontmost is true)';
 
-            let windowTitle = null;
-            try {
-                const winScript = 'tell application "System Events" to get name of front window of (first process whose frontmost is true)';
-                windowTitle = execSync(`osascript -e '${winScript}'`, { encoding: 'utf-8' }).trim();
-            } catch {
-                // App doesn't expose window names via Accessibility — not fatal
-            }
+            const [appName, windowTitle] = await Promise.all([
+                execAsync(`osascript -e '${appScript}'`),
+                execAsync(`osascript -e '${winScript}'`).catch(() => null),
+            ]);
 
             return { appName, windowTitle };
         } catch (error) {
@@ -124,16 +130,17 @@ function simulatePaste() {
 }
 
 /**
- * Get the currently selected text by simulating Cmd+C and reading clipboard
- * @param {Electron.Clipboard} clipboard - Electron clipboard module
- * @returns {Promise<string>}
+ * Phase 1: Save clipboard and fire Cmd+C. Returns a function to call for Phase 2.
+ * Must be called while the target app is still focused.
+ * @param {Electron.Clipboard} clipboard
+ * @returns {Promise<{ readSelection: () => Promise<string> }>}
  */
-async function getSelectedText(clipboard) {
+async function fireClipboardCopy(clipboard) {
     const originalClipboard = clipboard.readText();
     clipboard.writeText('');
 
     console.log('[Selection] Simulating copy...');
-    await new Promise((resolve) => {
+    const copyPromise = new Promise((resolve) => {
         if (IS_MAC) {
             exec('osascript -e \'tell application "System Events" to keystroke "c" using command down\'', (error) => {
                 if (error) console.error('[Selection] Copy failed:', error.message);
@@ -152,12 +159,28 @@ async function getSelectedText(clipboard) {
         }
     });
 
-    await new Promise(resolve => setTimeout(resolve, 100));
-    const selectedText = clipboard.readText();
-    console.log(`[Selection] Captured ${selectedText.length} chars`);
+    await copyPromise;
 
-    clipboard.writeText(originalClipboard);
-    return selectedText || '';
+    return {
+        readSelection: async () => {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            const selectedText = clipboard.readText();
+            console.log(`[Selection] Captured ${selectedText.length} chars`);
+            clipboard.writeText(originalClipboard);
+            return selectedText || '';
+        }
+    };
+}
+
+/**
+ * Get the currently selected text by simulating Cmd+C and reading clipboard.
+ * Convenience wrapper around fireClipboardCopy for callers that don't need the split.
+ * @param {Electron.Clipboard} clipboard - Electron clipboard module
+ * @returns {Promise<string>}
+ */
+async function getSelectedText(clipboard) {
+    const { readSelection } = await fireClipboardCopy(clipboard);
+    return readSelection();
 }
 
 // Maps lowercase substrings to the canonical app name used in AppleScript
@@ -203,4 +226,4 @@ function getBrowserContext(appName) {
     }
 }
 
-module.exports = { getFrontmostApp, activateApp, simulatePaste, getSelectedText, getBrowserContext };
+module.exports = { getFrontmostApp, activateApp, simulatePaste, fireClipboardCopy, getSelectedText, getBrowserContext };

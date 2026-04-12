@@ -218,6 +218,38 @@ export const ja: Translation = {
     shortcuts: {
         title: 'キーボードショートカット',
         description: 'システム上のどこからでもこれらのショートカットを使用してPromptOSにアクセスできます。',
+        cards: {
+            toggle: {
+                title: 'AIアシスタントの切り替え',
+                description: 'オーバーレイの表示/非表示（起動時に選択テキストを取得）',
+            },
+            context: {
+                title: 'コンテキストの更新',
+                description: 'オーバーレイ表示中に新しく選択したテキストを取得',
+            },
+            settings: {
+                title: '設定を開く',
+                description: '環境設定を管理',
+            },
+        },
+        tips: {
+            title: '使い方のヒント',
+            quick_refine: {
+                label: 'クイック調整:',
+                text_before: 'まずテキストをハイライトし、',
+                text_after: ' を押してコンテキストとともに開きます。「これを要約して」や「文法を修正して」のように入力してください。',
+            },
+            update_context: {
+                label: 'コンテキスト更新:',
+                text_before: 'オーバーレイ表示中に別のテキストを選択して ',
+                text_after: ' を押すと、閉じずにコンテキストを更新できます。',
+            },
+            clean_toggle: {
+                label: 'かんたん非表示:',
+                text_before: 'もう一度 ',
+                text_after: ' を押すとオーバーレイを閉じます。シンプルで確実です。',
+            },
+        },
     },
     overlay: {
         placeholder: 'AIに依頼...',

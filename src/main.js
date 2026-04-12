@@ -9,10 +9,11 @@ require('dotenv').config({
 const { createSupabaseClient } = require('./supabase');
 const { initGemini } = require('./services/gemini-service');
 const { initGrok } = require('./services/grok-service');
+const { initClaude } = require('./services/claude-service');
 const { loadUserProfile } = require('./services/auth-service');
 const { analyzeSessionForFacts } = require('./services/memory-service');
-const { getFrontmostApp, getSelectedText, getBrowserContext } = require('./services/focus-service');
-const { createMainWindow, createOverlayWindow, showOverlay, hideOverlay, updateOverlayContext, ICON_PATH } = require('./core/window-manager');
+const { getFrontmostApp, fireClipboardCopy, getSelectedText, getBrowserContext } = require('./services/focus-service');
+const { createMainWindow, createOverlayWindow, showOverlay, showOverlayInactive, hideOverlay, updateOverlayContext, ICON_PATH } = require('./core/window-manager');
 const { registerShortcuts, unregisterShortcuts } = require('./core/shortcuts-manager');
 const { setupIPC } = require('./ipc/index');
 const { initUpdater, flushPendingUpdate } = require('./core/updater');
@@ -26,6 +27,7 @@ let overlayWindow = null;
 let mainWindow = null;
 let genAI = null;
 let grokAI = null;
+let claudeAI = null;
 let supabase = null;
 let chatSessionRef = { current: null }; // Mutable ref passed to gemini-service
 let previousApp = null;
@@ -47,6 +49,8 @@ const appState = {
     set genAI(v) { genAI = v; },
     get grokAI() { return grokAI; },
     set grokAI(v) { grokAI = v; },
+    get claudeAI() { return claudeAI; },
+    set claudeAI(v) { claudeAI = v; },
     get supabase() { return supabase; },
     get chatSessionRef() { return chatSessionRef; },
     get previousApp() { return previousApp; },
@@ -70,6 +74,7 @@ async function transitionToOverlayMode() {
     if (mainWindow) { mainWindow.close(); mainWindow = null; }
     if (!genAI) genAI = initGemini();
     if (!grokAI) grokAI = initGrok();
+    if (!claudeAI) claudeAI = initClaude();
 
     overlayWindow = createOverlayWindow();
     registerShortcuts({
@@ -101,11 +106,6 @@ async function transitionToAuthMode() {
 // =============================================================================
 
 async function handleShowOverlay() {
-    const { appName, windowTitle } = getFrontmostApp();
-    previousApp = appName;
-    previousWindow = windowTitle;
-    console.log(`[Focus] Captured previous app: "${previousApp}", window: "${previousWindow}"`);
-    previousBrowserContext = getBrowserContext(previousApp);
     chatSessionRef.current = null;
 
     if (!currentMemorySession) {
@@ -113,8 +113,31 @@ async function handleShowOverlay() {
         console.log('[Memory] New session started');
     }
 
-    const selection = await getSelectedText(clipboard);
-    showOverlay(overlayWindow, selection);
+    // Show overlay immediately (without focus) so user sees it near-instantly
+    showOverlayInactive(overlayWindow);
+
+    // Capture context in parallel while previous app still has focus
+    const [{ appName, windowTitle }, { readSelection }] = await Promise.all([
+        getFrontmostApp(),
+        fireClipboardCopy(clipboard),
+    ]);
+
+    previousApp = appName;
+    previousWindow = windowTitle;
+    console.log(`[Focus] Captured previous app: "${previousApp}", window: "${previousWindow}"`);
+
+    // Focus overlay now that context is captured
+    overlayWindow.focus();
+
+    // Read clipboard (100ms delay) and send selection to overlay
+    const selection = await readSelection();
+    overlayWindow.webContents.send('window-shown', { selection });
+
+    // Defer browser context — only needed at generation time
+    previousBrowserContext = null;
+    Promise.resolve().then(() => {
+        previousBrowserContext = getBrowserContext(previousApp);
+    });
 }
 
 async function handleUpdateContext() {
@@ -130,9 +153,17 @@ function toggleOverlay() {
     if (!overlayWindow) return;
     if (overlayWindow.isVisible()) {
         hideOverlay(overlayWindow);
-    } else {
-        handleShowOverlay();
+        return;
     }
+
+    // Exit full-screen on main window before showing overlay
+    if (mainWindow && mainWindow.isFullScreen()) {
+        mainWindow.once('leave-full-screen', () => handleShowOverlay());
+        mainWindow.setFullScreen(false);
+        return;
+    }
+
+    handleShowOverlay();
 }
 
 function openSettings() {
@@ -196,6 +227,7 @@ app.whenReady().then(async () => {
                 currentUserProfile = profile;
                 genAI = initGemini();
                 grokAI = initGrok();
+                claudeAI = initClaude();
                 overlayWindow = createOverlayWindow();
                 registerShortcuts({
                     onToggleOverlay: toggleOverlay,

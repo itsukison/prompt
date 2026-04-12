@@ -220,7 +220,13 @@ export function OverlayWindow() {
 
 
   return (
-    <div className="bg-transparent h-screen flex flex-col justify-end items-center p-3 pb-6 font-[-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,Oxygen,Ubuntu,sans-serif]">
+    <div className="bg-transparent h-screen flex flex-col justify-end items-center p-3 pb-3 font-[-apple-system,BlinkMacSystemFont,'Segoe_UI',Roboto,Oxygen,Ubuntu,sans-serif]">
+      <div
+        onMouseEnter={() => promptOS.setIgnoreMouseEvents(false)}
+        onMouseLeave={() => promptOS.setIgnoreMouseEvents(true)}
+        className="w-full flex flex-col items-center"
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      >
       {/* Result Section - conditional render based on derived state */}
       {hasResult && (
         <div
@@ -228,7 +234,8 @@ export function OverlayWindow() {
           style={{
             background: '#151516',
             boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-          }}
+            WebkitAppRegion: 'no-drag',
+          } as React.CSSProperties}
         >
           {/* Shiny border effect - properly positioned on container */}
           <div
@@ -279,7 +286,8 @@ export function OverlayWindow() {
               background: '#151516',
               boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
               position: 'relative',
-            }}
+              WebkitAppRegion: 'no-drag',
+            } as React.CSSProperties}
           >
             <div
               className="absolute inset-0 rounded-xl pointer-events-none"
@@ -314,7 +322,8 @@ export function OverlayWindow() {
               background: '#151516',
               boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
               position: 'relative',
-            }}
+              WebkitAppRegion: 'no-drag',
+            } as React.CSSProperties}
           >
             <div
               className="absolute inset-0 rounded-[20px] pointer-events-none"
@@ -359,7 +368,8 @@ export function OverlayWindow() {
               background: '#151516',
               boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
               position: 'relative',
-            }}
+              WebkitAppRegion: 'no-drag',
+            } as React.CSSProperties}
           >
             <div
               className="absolute inset-0 rounded-xl pointer-events-none"
@@ -386,7 +396,8 @@ export function OverlayWindow() {
             background: '#151516',
             boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
             position: 'relative',
-          }}
+            WebkitAppRegion: 'no-drag',
+          } as React.CSSProperties}
         >
           <div
             className="absolute inset-0 rounded-xl pointer-events-none"
@@ -412,7 +423,8 @@ export function OverlayWindow() {
             background: '#151516',
             boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
             position: 'relative',
-          }}
+            WebkitAppRegion: 'no-drag',
+          } as React.CSSProperties}
         >
           <div
             className="absolute inset-0 rounded-xl pointer-events-none"
@@ -438,14 +450,15 @@ export function OverlayWindow() {
         </div>
       )}
 
-      {/* Input Bar */}
+      {/* Input Bar - w-full here since parent wrapper handles 92% via items-center */}
       <div
-        className="input-bar flex items-end gap-3 rounded-[20px] py-2.5 px-4 w-[92%]"
+        className="input-bar group flex items-end gap-3 rounded-[20px] py-2.5 px-4 w-[92%]"
         style={{
           background: '#151516',
           boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
           position: 'relative',
-        }}
+          WebkitAppRegion: 'no-drag',
+        } as React.CSSProperties}
       >
         <div
           className="absolute inset-0 rounded-[20px] pointer-events-none"
@@ -480,6 +493,8 @@ export function OverlayWindow() {
         >
           {isGenerating ? StopIcon : ArrowUpIcon}
         </Button>
+      </div>
+
       </div>
     </div>
   );

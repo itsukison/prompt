@@ -4,6 +4,9 @@ const { IS_MAC } = require('../utils/platform');
 
 const ICON_PATH = path.join(__dirname, '..', '..', 'public', 'app_logo.png');
 
+// Stores user-dragged overlay position; resets on app restart
+let customOverlayPosition = null;
+
 /**
  * Create or show the main settings/auth window
  * @param {BrowserWindow|null} existingWindow
@@ -53,13 +56,13 @@ function createOverlayWindow() {
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width, height } = primaryDisplay.workAreaSize;
     const windowWidth = 600;
-    const windowHeight = 400;
+    const windowHeight = 440;
 
     const overlayWindow = new BrowserWindow({
         width: windowWidth,
         height: windowHeight,
         x: Math.round((width - windowWidth) / 2),
-        y: height - windowHeight + 45,
+        y: height - windowHeight + 75,
         frame: false,
         transparent: true,
         backgroundColor: '#00000000',
@@ -83,28 +86,72 @@ function createOverlayWindow() {
         overlayWindow.setHiddenInMissionControl(true);
     }
 
+    // Track user-dragged position
+    overlayWindow.on('moved', () => {
+        const [x, y] = overlayWindow.getPosition();
+        customOverlayPosition = { x, y };
+    });
+
     return overlayWindow;
 }
 
 /**
- * Show the overlay, positioned near the cursor's display
+ * Position the overlay on the correct display and return the computed position.
+ * @param {BrowserWindow} overlayWindow
+ */
+function positionOverlay(overlayWindow) {
+    if (customOverlayPosition) {
+        overlayWindow.setPosition(customOverlayPosition.x, customOverlayPosition.y);
+        return;
+    }
+
+    const cursorPoint = screen.getCursorScreenPoint();
+    const display = screen.getDisplayNearestPoint(cursorPoint);
+    const { x: displayX, y: displayY, width, height } = display.workArea;
+    const windowWidth = 600;
+    const windowHeight = 440;
+
+    overlayWindow.setPosition(
+        Math.round(displayX + (width - windowWidth) / 2),
+        Math.round(displayY + height - windowHeight + 75)
+    );
+}
+
+/**
+ * Show the overlay without stealing focus (so the previous app stays frontmost
+ * for context capture). Caller is responsible for focusing and sending window-shown later.
+ * @param {BrowserWindow} overlayWindow
+ */
+function showOverlayInactive(overlayWindow) {
+    if (!overlayWindow) return;
+
+    positionOverlay(overlayWindow);
+
+    if (IS_MAC) {
+        overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+        overlayWindow.setAlwaysOnTop(true, 'screen-saver');
+    }
+
+    overlayWindow.setIgnoreMouseEvents(true, { forward: true });
+    overlayWindow.showInactive();
+}
+
+/**
+ * Show the overlay, positioned near the cursor's display (legacy — focuses immediately)
  * @param {BrowserWindow} overlayWindow
  * @param {string} selection - selected text to send with window-shown event
  */
 function showOverlay(overlayWindow, selection) {
     if (!overlayWindow) return;
 
-    const cursorPoint = screen.getCursorScreenPoint();
-    const display = screen.getDisplayNearestPoint(cursorPoint);
-    const { x: displayX, y: displayY, width, height } = display.workArea;
-    const windowWidth = 600;
-    const windowHeight = 400;
+    positionOverlay(overlayWindow);
 
-    overlayWindow.setPosition(
-        Math.round(displayX + (width - windowWidth) / 2),
-        Math.round(displayY + height - windowHeight + 45)
-    );
+    if (IS_MAC) {
+        overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+        overlayWindow.setAlwaysOnTop(true, 'screen-saver');
+    }
 
+    overlayWindow.setIgnoreMouseEvents(true, { forward: true });
     overlayWindow.show();
     overlayWindow.focus();
     overlayWindow.webContents.send('window-shown', { selection });
@@ -133,13 +180,15 @@ async function updateOverlayContext(overlayWindow, getFrontmostApp, getSelectedT
         console.log('[Overlay] Not visible, ignoring context update request');
         return null;
     }
-    const { appName, windowTitle } = getFrontmostApp();
+    const [{ appName, windowTitle }, selection] = await Promise.all([
+        getFrontmostApp(),
+        getSelectedText(clipboard),
+    ]);
     console.log(`[Focus] Re-captured previous app during update: "${appName}", window: "${windowTitle}"`);
-    const selection = await getSelectedText(clipboard);
     overlayWindow.show();
     overlayWindow.focus();
     overlayWindow.webContents.send('context-updated', { selection });
     return { appName, windowTitle };
 }
 
-module.exports = { createMainWindow, createOverlayWindow, showOverlay, hideOverlay, updateOverlayContext, ICON_PATH };
+module.exports = { createMainWindow, createOverlayWindow, showOverlay, showOverlayInactive, hideOverlay, updateOverlayContext, ICON_PATH };

@@ -161,6 +161,17 @@ export interface Translation {
     shortcuts: {
         title: string;
         description: string;
+        cards: {
+            toggle: { title: string; description: string };
+            context: { title: string; description: string };
+            settings: { title: string; description: string };
+        };
+        tips: {
+            title: string;
+            quick_refine: { label: string; text_before: string; text_after: string; };
+            update_context: { label: string; text_before: string; text_after: string; };
+            clean_toggle: { label: string; text_before: string; text_after: string; };
+        };
     };
     overlay: {
         placeholder: string;
